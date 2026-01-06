@@ -1,0 +1,38 @@
+# Smart Assistant Requirements - 100% Offline Mode
+# Core dependencies for offline voice assistant
+
+# GUI Framework
+PyQt6>=6.6.0
+PyQt6-Qt6>=6.6.0
+
+# Local LLM (GGUF models)
+llama-cpp-python>=0.2.0
+
+# Speech Recognition (Offline STT)
+faster-whisper>=1.0.0
+SpeechRecognition>=3.10.0
+
+# Text-to-Speech (Offline TTS)
+pyttsx3>=2.90
+
+# Audio Processing
+pygame>=2.5.0
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# Image/Utils
+Pillow>=10.0.0
+psutil>=5.9.0
+
+# Tools/System Control
+pyautogui>=0.9.54
+pygetwindow>=0.0.9
+
+# Volume Control (Windows)
+pycaw>=20181226
+
+# Security
+pycryptodome>=3.19.0
+
+# Environment
+python-dotenv>=1.0.0

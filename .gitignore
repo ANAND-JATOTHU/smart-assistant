@@ -1,0 +1,35 @@
+# Virtual Environment
+env_sruthi/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Data Files (personal conversations)
+data/memory.json
+
+# Model Files (too large for Git)
+*.gguf
+*.bin
+models/*.gguf
+
+# Temporary Files
+assets/temp_*.wav
+*.tmp
+*.log
+
+# IDE Settings
+.vscode/
+.idea/
+*.code-workspace
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment Variables (contains paths)
+.env

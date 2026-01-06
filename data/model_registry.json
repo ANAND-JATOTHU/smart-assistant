@@ -1,0 +1,11 @@
+{
+  "local": {
+    "key": "local",
+    "type": "local",
+    "model_path": null,
+    "model_name": "CodeLlama-7B",
+    "api_key": null,
+    "is_default": true,
+    "is_online": false
+  }
+}

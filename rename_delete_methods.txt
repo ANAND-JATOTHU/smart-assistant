@@ -1,0 +1,49 @@
+    def rename_conversation(self, conv_id: str, current_title: str):
+        """Rename a conversation"""
+        new_title, ok = QInputDialog.getText(
+            self,
+            "Rename Conversation",
+            "Enter new title:",
+            QLineEdit.EchoMode.Normal,
+            current_title
+        )
+        
+        if ok and new_title and new_title != current_title:
+            try:
+                # Update conversation title in memory
+                conv_data = self.memory.get_conversation(conv_id)
+                if conv_data:
+                    conv_data['title'] = new_title
+                    conv_data['last_updated'] = datetime.now().isoformat()
+                    # Update in memory file
+                    self.memory._update_conversation(conv_id, conv_data)
+                    # Reload chat history to show updated title
+                    self.load_chat_history()
+                    self.update_status(f"Renamed to: {new_title}", "#10a37f")
+            except Exception as e:
+                self.show_error(f"Failed to rename: {str(e)}")
+    
+    def delete_conversation(self, conv_id: str):
+        """Delete a conversation"""
+        reply = QMessageBox.question(
+            self,
+            "Delete Conversation",
+            "Are you sure you want to delete this conversation? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                # Delete from memory
+                self.memory.delete_conversation(conv_id)
+                
+                # If we're viewing this conversation, clear it
+                if self.current_conversation_id == conv_id:
+                    self.new_chat()
+                
+                # Reload chat history
+                self.load_chat_history()
+                self.update_status("Conversation deleted", "#10a37f")
+            except Exception as e:
+                self.show_error(f"Failed to delete: {str(e)}")
