@@ -1661,31 +1661,46 @@ class SmartAssistantWindow(QMainWindow):
     
     def play_message_audio(self, message: str, bubble: 'MessageBubble'):
         """Play audio for a specific message"""
-        # Stop any currently playing message
-        self.stop_message_audio()
-        
-        # Set this bubble as currently playing
-        self.currently_playing_bubble = bubble
-        bubble.set_playing(True)
-        
-        # Create worker thread to speak in background
-        from PyQt6.QtCore import QThread
-        
-        class SpeakThread(QThread):
-            finished_signal = pyqtSignal()
+        try:
+            # Stop any currently playing message
+            self.stop_message_audio()
             
-            def __init__(self, speaker, text):
-                super().__init__()
-                self.speaker = speaker
-                self.text = text
+            # Set this bubble as currently playing
+            self.currently_playing_bubble = bubble
+            bubble.set_playing(True)
             
-            def run(self):
-                self.speaker.speak(self.text)
-                self.finished_signal.emit()
-        
-        self.speak_thread = SpeakThread(self.speaker, message)
-        self.speak_thread.finished_signal.connect(lambda: bubble.set_playing(False))
-        self.speak_thread.start()
+            # Update status
+            self.update_status("🔊 Playing message...", "#10a37f")
+            
+            # Create background thread for speaking
+            from PyQt6.QtCore import QThread, pyqtSignal
+            class SpeakThread(QThread):
+                finished = pyqtSignal()
+                
+                def __init__(self, speaker, text):
+                    super().__init__()
+                    self.speaker = speaker
+                    self.text = text
+                
+                def run(self):
+                    try:
+                        self.speaker.speak(self.text)
+                    except Exception as e:
+                        print(f"Error speaking: {e}")
+                    self.finished.emit()
+            
+            self.speak_thread = SpeakThread(self.speaker, message)
+            self.speak_thread.finished.connect(lambda: self.on_speak_finished(bubble))
+            self.speak_thread.start()
+            
+        except Exception as e:
+            print(f"Error in play_message_audio: {e}")
+            bubble.set_playing(False)
+    
+    def on_speak_finished(self, bubble):
+        """Called when speaking finishes"""
+        bubble.set_playing(False)
+        self.update_status("Ready", "#888")
     
     def stop_message_audio(self):
         """Stop currently playing message audio"""
