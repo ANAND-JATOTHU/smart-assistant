@@ -1,19 +1,73 @@
-# Smart Assistant - 100% Offline AI Voice Assistant
+# SRUTHI-AI - Smart Assistant
 
-🤖 **A Modern, ChatGPT-Style Voice Assistant** with GPU-accelerated STT, Local LLM, and Advanced PyQt6 GUI - Completely Offline!
+🤖 A privacy-focused, 100% offline AI assistant with voice capabilities and multimodal document intelligence.
 
 ## ✨ Features
 
-- 🎤 **Speech Recognition**: GPU-accelerated Whisper (faster-whisper) - 100% Offline
-- 🧠 **Local AI Brain**: GGUF models via llama-cpp-python - No Internet Required
-- 🔊 **Text-to-Speech**: Pyttsx3 (offline only)
-- 🎨 **Modern ChatGPT-Style GUI**: Dark-themed PyQt6 interface with chat history sidebar
-- 💬 **Chat History**: Persistent conversations with sidebar navigation
-- 🎬 **Smooth Animations**: PyQt6 animations for professional feel
-- ⚙️ **System Commands**: Control volume, open apps, search Chrome/YouTube
-- 🔒 **100% Privacy**: All processing happens locally - ZERO internet usage
-- ⚡ **Non-blocking UI**: Threading ensures GUI never freezes
-- 🌙 **Dark Theme**: Modern, easy-on-the-eyes interface
+### Core Capabilities
+- 🎤 **Voice Input** - Faster-Whisper offline STT
+- 🔊 **Voice Output** - pyttsx3 offline TTS with per-message playback
+- 🧠 **Local AI** - Runs GGUF models (Mistral, Llama, etc.)
+- 💬 **Chat Interface** - Modern ChatGPT-style UI
+- 💾 **Chat History** - Save and load conversations
+- 🌙 **Multiple Themes** - Dark, Light, High Contrast, Midnight Blue
+
+### 🆕 Multimodal Intelligence
+- 📎 **Document Upload** - PDF, DOCX, TXT support
+- 🖼️ **Image OCR** - Extract text from images
+- 🎵 **Per-Message Audio** - Replay any AI response
+- 🎚️ **Volume Control** - Hover slider for real-time adjustment
+- ☰ **Collapsible Sidebar** - Clean, focused interface
+
+### Privacy & Performance
+- 🔒 **100% Offline** - Your data stays on your machine
+- ⚡ **Fast** - Local processing, no API delays
+- 🎯 **Context-Aware** - Ask questions about uploaded documents
+
+## Requirements
+
+- Python 3.10+
+- CUDA GPU (recommended for faster inference)
+- 8GB+ RAM
+- Windows/Linux/macOS
+
+## Quick Start
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements_docs.txt  # For document features
+
+# Download a GGUF model
+# Place in: models/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+
+# Run
+python main.py
+```
+
+## 🎯 Usage
+
+1. **Voice Mode**: Click 🎤 to speak your question
+2. **Text Mode**: Type and press Enter
+3. **Upload Documents**: Click 📎 to attach PDF/DOCX/images
+4. **Replay Audio**: Click 🔊 on any AI response
+5. **Adjust Volume**: Hover over 🔊 button in input area
+
+## Tech Stack
+
+- **GUI**: PyQt6
+- **LLM**: llama-cpp-python (GGUF models)
+- **STT**: faster-whisper
+- **TTS**: pyttsx3
+- **Document Processing**: PyPDF2, python-docx, pytesseract
+
+## Privacy
+
+All processing happens locally. No internet connection required. No data sent to external servers.
+
+## License
+
+MIT
 
 ## 🏗️ Architecture
 
