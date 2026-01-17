@@ -1,12 +1,14 @@
 """
-Smart Assistant - Advanced GUI with Sidebar & Animations
-Modern interface with chat history sidebar, settings, and PyQt6 animations
+Smart Assistant - Enhanced GUI with Advanced Features
+Modern interface with themes, animations, export, search, and voice visualization
 """
 
 import sys
 import os
+import json
 from datetime import datetime
 from typing import Optional, List
+from pathlib import Path
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -15,20 +17,24 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QPushButton, QLabel, QLineEdit, QScrollArea, 
     QFrame, QMessageBox, QDialog, QCheckBox, QComboBox, QSpinBox,
-    QGridLayout, QListWidget, QListWidgetItem, QSplitter, QInputDialog
+    QGridLayout, QListWidget, QListWidgetItem, QSplitter, QInputDialog,
+    QFileDialog, QSlider, QProgressBar, QMenu, QSystemTrayIcon
 )
 from PyQt6.QtCore import (
     Qt, QThread, pyqtSignal, QTimer, QPropertyAnimation, 
-    QEasingCurve, QRect, QSize, pyqtProperty
+    QEasingCurve, QRect, QSize, pyqtProperty, QPoint, QSequentialAnimationGroup
 )
 from PyQt6.QtGui import (
-    QFont, QTextCursor, QIcon, QPixmap, QPalette, QColor, QPainter
+    QFont, QTextCursor, QIcon, QPixmap, QPalette, QColor, QPainter,
+    QKeySequence, QShortcut, QAction
 )
 
 from core.listener import SpeechListener
 from core.brain import AIBrain
 from core.speaker import Speaker
 from core.memory import Memory
+from gui.themes import theme_manager, Theme
+from core.document_processor import DocumentProcessor
 
 
 class WorkerThread(QThread):
@@ -147,6 +153,8 @@ class MessageBubble(QFrame):
         self.message = message
         self.is_user = is_user
         self.timestamp = timestamp
+        self.parent_window = parent
+        self.is_playing = False
         self._setup_ui()
         self._setup_animation()
     
@@ -155,6 +163,33 @@ class MessageBubble(QFrame):
         layout = QVBoxLayout()
         layout.setContentsMargins(15, 10, 15, 10)
         layout.setSpacing(5)
+        
+        # AI message header with play button
+        if not self.is_user:
+            header = QHBoxLayout()
+            ai_label = QLabel("🤖 AI")
+            ai_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            ai_label.setStyleSheet("color: #10a37f; background: transparent;")
+            header.addWidget(ai_label)
+            header.addStretch()
+            
+            self.play_btn = QPushButton("🔊")
+            self.play_btn.setFixedSize(26, 26)
+            self.play_btn.setToolTip("Play message")
+            self.play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.play_btn.clicked.connect(self.play_message_audio)
+            self.play_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #3d3d3d;
+                    color: white;
+                    border: none;
+                    border-radius: 13px;
+                    font-size: 12px;
+                }
+                QPushButton:hover { background-color: #10a37f; }
+            """)
+            header.addWidget(self.play_btn)
+            layout.addLayout(header)
         
         message_label = QLabel(self.message)
         message_label.setWordWrap(True)
@@ -210,6 +245,408 @@ class MessageBubble(QFrame):
         self.fade_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
         
         QTimer.singleShot(50, self.fade_anim.start)
+    
+    def play_message_audio(self):
+        if self.parent_window and hasattr(self.parent_window, 'play_message_audio'):
+            self.parent_window.play_message_audio(self.message, self)
+    
+    def set_playing(self, playing: bool):
+        if hasattr(self, 'play_btn'):
+            if playing:
+                self.play_btn.setText("⏸")
+                self.play_btn.setStyleSheet("QPushButton { background-color: #10a37f; color: white; border: none; border-radius: 13px; font-size: 12px; } QPushButton:hover { background-color: #0d8c6e; }")
+            else:
+                self.play_btn.setText("🔊")
+                self.play_btn.setStyleSheet("QPushButton { background-color: #3d3d3d; color: white; border: none; border-radius: 13px; font-size: 12px; } QPushButton:hover { background-color: #10a37f; }")
+
+
+class TypingIndicator(QFrame):
+    """Animated typing indicator (three dots)"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+        self._setup_animation()
+    
+    def _setup_ui(self):
+        """Setup UI"""
+        self.setStyleSheet("""
+            TypingIndicator {
+                background-color: #2b2b2b;
+                border: 1px solid #3d3d3d;
+                border-radius: 18px;
+                padding: 15px 20px;
+            }
+        """)
+        self.setMaximumWidth(80)
+        self.setFixedHeight(50)
+        
+        layout = QHBoxLayout()
+        layout.setContentsMargins(10, 0, 10, 0)
+        layout.setSpacing(8)
+        
+        # Create three dots
+        self.dots = []
+        for i in range(3):
+            dot = QLabel("●")
+            dot.setFont(QFont("Segoe UI", 12))
+            dot.setStyleSheet("color: #888; background: transparent;")
+            layout.addWidget(dot)
+            self.dots.append(dot)
+        
+        self.setLayout(layout)
+    
+    def _setup_animation(self):
+        """Setup pulsing animation for dots"""
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._animate_dots)
+        self.current_dot = 0
+        
+    def start(self):
+        """Start animation"""
+        self.timer.start(400)
+        self.show()
+    
+    def stop(self):
+        """Stop animation"""
+        self.timer.stop()
+        self.hide()
+    
+    def _animate_dots(self):
+        """Animate the dots"""
+        # Reset all dots
+        for dot in self.dots:
+            dot.setStyleSheet("color: #888; background: transparent;")
+        
+        # Highlight current dot
+        self.dots[self.current_dot].setStyleSheet("color: #10a37f; background: transparent;")
+        self.current_dot = (self.current_dot + 1) % 3
+
+
+class WelcomeScreen(QWidget):
+    """Welcome screen shown when no conversation active"""
+    
+    quick_prompt_clicked = pyqtSignal(str)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Setup welcome UI"""
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(30)
+        
+        # Welcome title
+        title = QLabel("👋 Welcome to Smart Assistant")
+        title.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        title.setStyleSheet("color: #10a37f;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        
+        # Subtitle
+        subtitle = QLabel("Your 100% Offline AI Assistant")
+        subtitle.setFont(QFont("Segoe UI", 14))
+        subtitle.setStyleSheet("color: #888;")
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(subtitle)
+        
+        # Offline badge
+        badge = QLabel("🔒 Fully Offline • Privacy Protected")
+        badge.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        badge.setStyleSheet("""
+            background-color: #2b2b2b;
+            color: #10a37f;
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid #10a37f;
+        """)
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge.setFixedHeight(40)
+        layout.addWidget(badge, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        layout.addSpacing(20)
+        
+        # Quick start tips
+        tips_label = QLabel("Quick Start Tips:")
+        tips_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        tips_label.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(tips_label)
+        
+        tips = [
+            "🎤 Click the microphone to start voice chat",
+            "⌨️ Type your message and press Enter",
+            "🔊 Toggle voice output with the speaker button",
+            "⌨️ Press Ctrl+N for new chat",
+            "💾 Conversations auto-save in the sidebar"
+        ]
+        
+        for tip in tips:
+            tip_label = QLabel(tip)
+            tip_label.setFont(QFont("Segoe UI", 11))
+            tip_label.setStyleSheet("color: #888; padding: 5px;")
+            layout.addWidget(tip_label)
+        
+        layout.addSpacing(20)
+        
+        # Keyboard shortcuts
+        shortcuts_label = QLabel("Keyboard Shortcuts:")
+        shortcuts_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        shortcuts_label.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(shortcuts_label)
+        
+        shortcuts = [
+            "Ctrl+N - New Chat",
+            "Ctrl+L - Start Voice Input",
+            "Ctrl+K - Clear Current Chat",
+            "Ctrl+E - Export Conversation",
+            "Ctrl+, - Open Settings"
+        ]
+        
+        for shortcut in shortcuts:
+            sc_label = QLabel(shortcut)
+            sc_label.setFont(QFont("Courier New", 10))
+            sc_label.setStyleSheet("color: #888; padding: 3px;")
+            layout.addWidget(sc_label)
+        
+        self.setLayout(layout)
+
+
+class VoiceVisualization(QWidget):
+    """Simple voice visualization widget"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
+        self.levels = [0.2] * 20
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_levels)
+        self.timer.start(50)
+        
+    def update_levels(self):
+        """Update audio levels"""
+        import random
+        self.levels = [random.random() * 0.8 for _ in range(20)]
+        self.update()
+        
+    def paintEvent(self, event):
+        """Paint the visualization"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        width = self.width() / len(self.levels)
+        for i, level in enumerate(self.levels):
+            height = level * self.height()
+            x = i * width
+            y = self.height() - height
+            
+            painter.fillRect(
+                int(x), int(y), int(width - 2), int(height),
+                QColor("#10a37f")
+            )
+
+
+class VolumeSliderPopup(QWidget):
+    """Popup volume slider that appears on hover"""
+    
+    volume_changed = pyqtSignal(int)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        self.setFixedSize(60, 150)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # Main layout
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Container with background
+        container = QWidget()
+        container.setStyleSheet("""
+            QWidget {
+                background-color: #2b2b2b;
+                border: 1px solid #3d3d3d;
+                border-radius: 8px;
+            }
+        """)
+        container_layout = QVBoxLayout()
+        container_layout.setContentsMargins(8, 12, 8, 12)
+        
+        # Volume label
+        self.volume_label = QLabel("100%")
+        self.volume_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.volume_label.setStyleSheet("color: #e0e0e0; font-size: 11px; background: transparent; border: none;")
+        container_layout.addWidget(self.volume_label)
+        
+        # Vertical slider
+        self.slider = QSlider(Qt.Orientation.Vertical)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(100)
+        self.slider.setValue(100)
+        self.slider.setFixedHeight(90)
+        self.slider.valueChanged.connect(self.on_slider_change)
+        self.slider.setStyleSheet("""
+            QSlider::groove:vertical {
+                background: #3d3d3d;
+                width: 6px;
+                border-radius: 3px;
+            }
+            QSlider::handle:vertical {
+                background: #10a37f;
+                height: 16px;
+                margin: 0 -5px;
+                border-radius: 8px;
+            }
+            QSlider::handle:vertical:hover {
+                background: #0d8c6e;
+            }
+        """)
+        container_layout.addWidget(self.slider, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        container.setLayout(container_layout)
+        layout.addWidget(container)
+        self.setLayout(layout)
+    
+    def on_slider_change(self, value):
+        """Handle slider value change"""
+        self.volume_label.setText(f"{value}%")
+        self.volume_changed.emit(value)
+    
+    def set_volume(self, value):
+        """Set slider value programmatically"""
+        self.slider.setValue(value)
+    
+    def get_volume(self):
+        """Get current volume"""
+        return self.slider.value()
+
+
+class QuickPromptsDialog(QDialog):
+    """Dialog for quick prompt selection"""
+    
+    prompt_selected = pyqtSignal(str)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Quick Prompts")
+        self.setModal(True)
+        self.setMinimumWidth(600)
+        self.setMinimumHeight(500)
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Setup UI"""
+        layout = QVBoxLayout()
+        
+        title = QLabel("Quick Prompts")
+        title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        title.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(title)
+        
+        # Categories with prompts
+        self.prompts = {
+            "💻 Code": [
+                "Explain this code concept",
+                "Debug my code",
+                "Write a function for",
+                "Best practices for",
+                "Optimize this algorithm"
+            ],
+            "✍️ Writing": [
+                "Write an email about",
+                "Summarize this text",
+                "Improve this paragraph",
+                "Create a outline for",
+                "Proofread and edit"
+            ],
+            "📊 Analysis": [
+                "Analyze this data",
+                "Compare and contrast",
+                "Pros and cons of",
+                "Explain the implications",
+                "What are the key points?"
+            ],
+            "🎓 Learning": [
+                "Teach me about",
+                "What is the difference between",
+                "Explain like I'm 5",
+                "Give me examples of",
+                "Quiz me on"
+            ],
+            "💡 Ideas": [
+                "Brainstorm ideas for",
+                "Creative solutions for",
+                "Alternative approaches to",
+                "Innovative ways to",
+                "What if scenarios"
+            ]
+        }
+        
+        # Create tabs or list
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        
+        content = QWidget()
+        content_layout = QVBoxLayout()
+        
+        for category, prompts in self.prompts.items():
+            # Category header
+            cat_label = QLabel(category)
+            cat_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+            cat_label.setStyleSheet("color: #10a37f; padding: 10px 0;")
+            content_layout.addWidget(cat_label)
+            
+            # Prompt buttons
+            for prompt in prompts:
+                btn = QPushButton(prompt)
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #2b2b2b;
+                        color: #e0e0e0;
+                        border: 1px solid #3d3d3d;
+                        border-radius: 8px;
+                        padding: 12px;
+                        text-align: left;
+                    }
+                    QPushButton:hover {
+                        background-color: #3d3d3d;
+                        border-color: #10a37f;
+                    }
+                """)
+                btn.clicked.connect(lambda checked, p=prompt: self._select_prompt(p))
+                content_layout.addWidget(btn)
+        
+        content.setLayout(content_layout)
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.reject)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+            }
+        """)
+        layout.addWidget(close_btn)
+        
+        self.setLayout(layout)
+        self.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+    
+    def _select_prompt(self, prompt: str):
+        """Handle prompt selection"""
+        self.prompt_selected.emit(prompt)
+        self.accept()
 
 
 class ChatHistoryItem(QWidget):
@@ -453,6 +890,10 @@ class SmartAssistantWindow(QMainWindow):
         # Initialize components
         self.init_components()
         
+        # Initialize document processor
+        self.document_processor = DocumentProcessor()
+        self.attached_files = []  # Track attached documents
+        
         # Setup UI
         self.init_ui()
         
@@ -462,6 +903,15 @@ class SmartAssistantWindow(QMainWindow):
         self.is_busy = False
         self.current_conversation_id = None
         self.loading_conversation = False  # Flag to prevent auto-scroll when loading
+        self.sidebar_visible = True  # Sidebar visibility state
+        
+        # UI Elements for new features
+        self.typing_indicator = None
+        self.voice_viz = None
+        self.welcome_screen = None
+        
+        # Setup keyboard shortcuts
+        self.setup_shortcuts()
         
         # Load chat history
         self.load_chat_history()
@@ -502,8 +952,8 @@ class SmartAssistantWindow(QMainWindow):
         main_layout.setSpacing(0)
         
         # Sidebar
-        sidebar = self.create_sidebar()
-        main_layout.addWidget(sidebar)
+        self.sidebar = self.create_sidebar()
+        main_layout.addWidget(self.sidebar)
         
         # Main chat area
         chat_widget = QWidget()
@@ -546,6 +996,20 @@ class SmartAssistantWindow(QMainWindow):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        
+        # Hamburger menu (starts in sidebar)
+        self.sidebar_ham_widget = QWidget()
+        self.sidebar_ham_layout = QHBoxLayout()
+        self.sidebar_ham_layout.setContentsMargins(10, 10, 10, 5)
+        self.hamburger_btn = AnimatedButton("☰")
+        self.hamburger_btn.setFixedSize(35, 35)
+        self.hamburger_btn.setToolTip("Hide Sidebar")
+        self.hamburger_btn.clicked.connect(self.toggle_sidebar)
+        self.hamburger_btn.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        self.sidebar_ham_layout.addWidget(self.hamburger_btn)
+        self.sidebar_ham_layout.addStretch()
+        self.sidebar_ham_widget.setLayout(self.sidebar_ham_layout)
+        layout.addWidget(self.sidebar_ham_widget)
         
         # New chat button
         new_chat_btn = AnimatedButton("+ New Chat")
@@ -639,6 +1103,106 @@ class SmartAssistantWindow(QMainWindow):
         """)
         layout.addWidget(settings_btn)
         
+        # Quick Prompts button
+        prompts_btn = AnimatedButton("💡  Quick Prompts")
+        prompts_btn.setFont(QFont("Segoe UI", 10))
+        prompts_btn.clicked.connect(self.show_quick_prompts)
+        prompts_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 15px;
+                margin: 5px 10px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #2b2b2b;
+            }
+        """)
+        layout.addWidget(prompts_btn)
+        
+        # Voice Settings button
+        voice_btn = AnimatedButton("🎙️  Voice Settings")
+        voice_btn.setFont(QFont("Segoe UI", 10))
+        voice_btn.clicked.connect(self.show_voice_selector)
+        voice_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 15px;
+                margin: 5px 10px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #2b2b2b;
+            }
+        """)
+        layout.addWidget(voice_btn)
+        
+        # Search button
+        search_btn = AnimatedButton("🔍  Search")
+        search_btn.setFont(QFont("Segoe UI", 10))
+        search_btn.clicked.connect(self.show_search_dialog)
+        search_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 15px;
+                margin: 5px 10px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #2b2b2b;
+            }
+        """)
+        layout.addWidget(search_btn)
+        
+        # Statistics button
+        stats_btn = AnimatedButton("📊  Statistics")
+        stats_btn.setFont(QFont("Segoe UI", 10))
+        stats_btn.clicked.connect(self.show_statistics)
+        stats_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 15px;
+                margin: 5px 10px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #2b2b2b;
+            }
+        """)
+        layout.addWidget(stats_btn)
+        
+        # Export button
+        export_btn = AnimatedButton("💾  Export Chat")
+        export_btn.setFont(QFont("Segoe UI", 10))
+        export_btn.clicked.connect(self.export_conversation)
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 15px;
+                margin: 5px 10px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #2b2b2b;
+            }
+        """)
+        layout.addWidget(export_btn)
+        
         # Clear all button
         clear_btn = AnimatedButton("🗑️  Clear All")
         clear_btn.setFont(QFont("Segoe UI", 10))
@@ -668,17 +1232,16 @@ class SmartAssistantWindow(QMainWindow):
         header.setStyleSheet("background-color: #1e1e1e; border-bottom: 1px solid #3d3d3d;")
         header.setFixedHeight(60)
         
-        layout = QHBoxLayout()
-        layout.setContentsMargins(20, 0, 20, 0)
+        self.header_layout = QHBoxLayout()
+        self.header_layout.setContentsMargins(20, 0, 20, 0)
         
         title = QLabel("Smart Assistant")
         title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         title.setStyleSheet("color: #10a37f;")
-        layout.addWidget(title)
+        self.header_layout.addWidget(title)
+        self.header_layout.addStretch()
         
-        layout.addStretch()
-        
-        header.setLayout(layout)
+        header.setLayout(self.header_layout)
         return header
     
     def create_chat_area(self):
@@ -719,6 +1282,11 @@ class SmartAssistantWindow(QMainWindow):
         self.chat_layout = QVBoxLayout()
         self.chat_layout.setContentsMargins(20, 20, 20, 20)
         self.chat_layout.setSpacing(15)
+        
+        # Add welcome screen initially
+        self.welcome_screen = WelcomeScreen()
+        self.chat_layout.addWidget(self.welcome_screen)
+        
         self.chat_layout.addStretch()
         
         self.chat_container.setLayout(self.chat_layout)
@@ -737,20 +1305,39 @@ class SmartAssistantWindow(QMainWindow):
         layout.setContentsMargins(20, 15, 20, 15)
         layout.setSpacing(10)
         
-        # Voice toggle
-        self.voice_btn = AnimatedButton("🔊")
-        self.voice_btn.setCheckable(True)
-        self.voice_btn.setChecked(True)
-        self.voice_btn.setToolTip("Toggle voice output")
-        self.voice_btn.clicked.connect(self.toggle_voice)
-        self.voice_btn.setFixedSize(50, 50)
-        self.voice_btn.setStyleSheet("""
+        # 1. Stop button (always available)
+        self.stop_btn = AnimatedButton("⏹")
+        self.stop_btn.setToolTip("Stop audio (Esc)")
+        self.stop_btn.setFixedSize(50, 50)
+        self.stop_btn.clicked.connect(self.stop_audio)
+        self.stop_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                border-radius: 25px;
+                font-size: 20px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        layout.addWidget(self.stop_btn)
+        
+        # 2. Audio toggle button with volume popup
+        self.audio_toggle_btn = AnimatedButton("🔊")
+        self.audio_toggle_btn.setCheckable(True)
+        self.audio_toggle_btn.setChecked(True)  # Default: audio enabled
+        self.audio_toggle_btn.setToolTip("Click: Toggle audio | Hover: Adjust volume")
+        self.audio_toggle_btn.setFixedSize(50, 50)
+        self.audio_toggle_btn.clicked.connect(self.toggle_audio)
+        self.audio_toggle_btn.setStyleSheet("""
             QPushButton {
                 background-color: #10a37f;
                 color: white;
                 border: none;
                 border-radius: 25px;
-                font-size: 20px;
+                font-size: 18px;
             }
             QPushButton:checked {
                 background-color: #10a37f;
@@ -762,9 +1349,21 @@ class SmartAssistantWindow(QMainWindow):
                 background-color: #0d8c6e;
             }
         """)
-        layout.addWidget(self.voice_btn)
         
-        # Text input - FIXED: Dark text on light background
+        # Create volume popup
+        self.volume_popup = VolumeSliderPopup(self)
+        self.volume_popup.volume_changed.connect(self.on_volume_change_realtime)
+        self.volume_popup.hide()
+        
+        # Install event filter to show popup on hover
+        self.audio_toggle_btn.installEventFilter(self)
+        self.audio_hover_timer = QTimer()
+        self.audio_hover_timer.setSingleShot(True)
+        self.audio_hover_timer.timeout.connect(self.show_volume_popup)
+        
+        layout.addWidget(self.audio_toggle_btn)
+        
+        # 3. Text input
         self.input_box = QLineEdit()
         self.input_box.setPlaceholderText("Type a message...")
         self.input_box.setFont(QFont("Segoe UI", 11))
@@ -785,48 +1384,61 @@ class SmartAssistantWindow(QMainWindow):
                 color: #888;
             }
         """)
-        layout.addWidget(self.input_box)
+        layout.addWidget(self.input_box, 1)
         
-        # Microphone button
+        # 4. Voice input button
         self.mic_btn = AnimatedButton("🎤")
-        self.mic_btn.setToolTip("Voice input")
-        self.mic_btn.clicked.connect(self.start_voice_input)
         self.mic_btn.setFixedSize(50, 50)
+        self.mic_btn.setToolTip("Voice input (Ctrl+L)")
+        self.mic_btn.clicked.connect(self.start_voice_input)
         self.mic_btn.setStyleSheet("""
             QPushButton {
-                background-color: #10a37f;
+                background-color: #3d3d3d;
                 color: white;
                 border: none;
                 border-radius: 25px;
                 font-size: 20px;
             }
             QPushButton:hover {
-                background-color: #0d8c6e;
-            }
-            QPushButton:disabled {
-                background-color: #3d3d3d;
+                background-color: #4d4d4d;
             }
         """)
         layout.addWidget(self.mic_btn)
         
-        # Send button
+        # 5. Attach button
+        self.attach_btn = AnimatedButton("📎")
+        self.attach_btn.setFixedSize(50, 50)
+        self.attach_btn.setToolTip("Attach PDF, DOCX, images, videos")
+        self.attach_btn.clicked.connect(self.show_file_picker)
+        self.attach_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: white;
+                border: none;
+                border-radius: 25px;
+                font-size: 18px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+            }
+        """)
+        layout.addWidget(self.attach_btn)
+        
+        # 6. Send button
         self.send_btn = AnimatedButton("➤")
-        self.send_btn.setToolTip("Send message")
-        self.send_btn.clicked.connect(self.send_message)
         self.send_btn.setFixedSize(50, 50)
+        self.send_btn.setToolTip("Send message (Enter)")
+        self.send_btn.clicked.connect(self.send_message)
         self.send_btn.setStyleSheet("""
             QPushButton {
                 background-color: #10a37f;
                 color: white;
                 border: none;
                 border-radius: 25px;
-                font-size: 20px;
+                font-size: 18px;
             }
             QPushButton:hover {
                 background-color: #0d8c6e;
-            }
-            QPushButton:disabled {
-                background-color: #3d3d3d;
             }
         """)
         layout.addWidget(self.send_btn)
@@ -921,8 +1533,13 @@ class SmartAssistantWindow(QMainWindow):
     
     def add_message_bubble(self, message: str, is_user: bool):
         """Add a message bubble to chat"""
+        # Hide welcome screen on first message
+        if self.welcome_screen and self.welcome_screen.isVisible():
+            self.welcome_screen.hide()
+            self.chat_layout.removeWidget(self.welcome_screen)
+        
         timestamp = datetime.now().strftime("%I:%M %p")
-        bubble = MessageBubble(message, is_user, timestamp)
+        bubble = MessageBubble(message, is_user, timestamp, self)
         
         # Remove stretch
         if self.chat_layout.count() > 0:
@@ -956,13 +1573,199 @@ class SmartAssistantWindow(QMainWindow):
         if scroll:
             scroll.verticalScrollBar().setValue(scroll.verticalScrollBar().maximum())
     
-    def toggle_voice(self):
-        """Toggle voice output"""
-        self.voice_enabled = self.voice_btn.isChecked()
-        if self.voice_enabled:
-            self.voice_btn.setText("🔊")
+    def toggle_sidebar(self):
+        """Toggle sidebar visibility and move hamburger button"""
+        if self.sidebar_visible:
+            # Hide sidebar
+            self.sidebar.hide()
+            self.sidebar_visible = False
+            # Move hamburger to header (before title)
+            self.header_layout.insertWidget(0, self.hamburger_btn)
+            self.hamburger_btn.setToolTip("Show Sidebar")
         else:
-            self.voice_btn.setText("🔇")
+            # Show sidebar
+            self.sidebar.show()
+            self.sidebar_visible = True
+            # Move hamburger back to sidebar
+            ham_layout = self.sidebar.findChild(QHBoxLayout)
+            if ham_layout:
+                ham_layout.insertWidget(0, self.hamburger_btn)
+            self.hamburger_btn.setToolTip("Hide Sidebar")
+    
+    def toggle_audio(self):
+        """Toggle audio output on/off"""
+        is_enabled = self.audio_toggle_btn.isChecked()
+        if is_enabled:
+            self.audio_toggle_btn.setText("🔊")
+            self.voice_enabled = True
+        else:
+            self.audio_toggle_btn.setText("🔇")
+            self.voice_enabled = False
+    
+    def eventFilter(self, obj, event):
+        """Event filter to show volume popup on hover"""
+        if obj == self.audio_toggle_btn:
+            if event.type() == event.Type.Enter:
+                # Mouse entered button
+                self.audio_hover_timer.start(300)  # Show after 300ms hover
+            elif event.type() == event.Type.Leave:
+                # Mouse left button
+                self.audio_hover_timer.stop()
+                # Hide popup after a delay
+                QTimer.singleShot(500, self.hide_volume_popup_if_not_hovered)
+        return super().eventFilter(obj, event)
+    
+    def show_volume_popup(self):
+        """Show volume slider popup"""
+        if self.volume_popup.isVisible():
+            return
+        
+        # Position popup above button
+        btn_pos = self.audio_toggle_btn.mapToGlobal(self.audio_toggle_btn.rect().topLeft())
+        popup_x = btn_pos.x() - 5
+        popup_y = btn_pos.y() - self.volume_popup.height() - 5
+        
+        self.volume_popup.move(popup_x, popup_y)
+        self.volume_popup.show()
+    
+    def hide_volume_popup_if_not_hovered(self):
+        """Hide volume popup if mouse not over it"""
+        if not self.volume_popup.underMouse() and not self.audio_toggle_btn.underMouse():
+            self.volume_popup.hide()
+    
+    def on_volume_change_realtime(self, value):
+        """Handle real-time volume changes from popup slider"""
+        volume = value / 100.0
+        self.speaker.set_volume(volume)
+        # Update button appearance based on volume
+        if value == 0:
+            self.audio_toggle_btn.setText("🔇")
+            self.audio_toggle_btn.setChecked(False)
+            self.voice_enabled = False
+        else:
+            if value < 33:
+                self.audio_toggle_btn.setText("🔉")
+            else:
+                self.audio_toggle_btn.setText("🔊")
+            self.audio_toggle_btn.setChecked(True)
+            self.voice_enabled = True
+    
+    def on_volume_change(self, value):
+        """Handle volume slider change (for sidebar volume control if added)"""
+        volume = value / 100.0
+        self.speaker.set_volume(volume)
+    
+    def toggle_mute(self):
+        """Toggle mute/unmute (for sidebar if added)"""
+        pass  # Can be extended if volume slider added to sidebar
+    
+    def play_message_audio(self, message: str, bubble: 'MessageBubble'):
+        """Play audio for a specific message"""
+        # Stop any currently playing message
+        self.stop_message_audio()
+        
+        # Set this bubble as currently playing
+        self.currently_playing_bubble = bubble
+        bubble.set_playing(True)
+        
+        # Create worker thread to speak in background
+        from PyQt6.QtCore import QThread
+        
+        class SpeakThread(QThread):
+            finished_signal = pyqtSignal()
+            
+            def __init__(self, speaker, text):
+                super().__init__()
+                self.speaker = speaker
+                self.text = text
+            
+            def run(self):
+                self.speaker.speak(self.text)
+                self.finished_signal.emit()
+        
+        self.speak_thread = SpeakThread(self.speaker, message)
+        self.speak_thread.finished_signal.connect(lambda: bubble.set_playing(False))
+        self.speak_thread.start()
+    
+    def stop_message_audio(self):
+        """Stop currently playing message audio"""
+        if hasattr(self, 'currently_playing_bubble') and self.currently_playing_bubble:
+            self.currently_playing_bubble.set_playing(False)
+            self.currently_playing_bubble = None
+        
+        if hasattr(self, 'speak_thread') and self.speak_thread and self.speak_thread.isRunning():
+            self.speaker.stop()
+            self.speak_thread.wait(500)
+    
+    def stop_audio(self):
+        """Stop current audio playback and cancel operation"""
+        # Stop message audio
+        self.stop_message_audio()
+        
+        # Stop speaker
+        if self.speaker and self.speaker.is_speaking():
+            self.speaker.stop()
+        
+        # Stop worker thread if running
+        if self.worker and self.worker.isRunning():
+            self.worker.stop()
+            self.worker.wait(1000)
+        
+        # Re-enable inputs
+        self.is_busy = False
+        self.mic_btn.setEnabled(True)
+        self.send_btn.setEnabled(True)
+        self.input_box.setEnabled(True)
+        
+        self.update_status("Stopped", "#888")
+    
+    def show_file_picker(self):
+        """Show file picker for document upload"""
+        file_filter = "All Supported (*.pdf *.doc *.docx *.txt *.md *.png *.jpg *.jpeg *.webp *.mp4);;PDF Files (*.pdf);;Word Documents (*.doc *.docx);;Text Files (*.txt *.md);;Images (*.png *.jpg *.jpeg *.webp);;Videos (*.mp4 *.avi *.mkv)"
+        
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Attach Files",
+            "",
+            file_filter
+        )
+        
+        if files:
+            for filepath in files:
+                self.attach_document(filepath)
+    
+    def attach_document(self, filepath: str):
+        """Process and attach a document"""
+        try:
+            # Process the document
+            result = self.document_processor.process_file(filepath)
+            
+            # Add to attached files
+            self.attached_files.append(result)
+            
+            # Show notification
+            filename = result['filename']
+            file_type = result['type']
+            self.update_status(f"Attached {filename} ({file_type})", "#10a37f")
+            
+            # Update attach button to show count
+            if len(self.attached_files) > 0:
+                self.attach_btn.setText(f"📎 {len(self.attached_files)}")
+                self.attach_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #10a37f;
+                        color: white;
+                        border: none;
+                        border-radius: 25px;
+                        font-size: 14px;
+                    }
+                    QPushButton:hover {
+                        background-color: #0d8c6e;
+                    }
+                """)
+            
+        except Exception as e:
+            QMessageBox.warning(self, "Attachment Error", f"Could not attach file:\n{str(e)}")
     
     def send_message(self):
         """Send text message"""
@@ -986,27 +1789,40 @@ class SmartAssistantWindow(QMainWindow):
             return
         
         self.is_busy = True
-        self.mic_btn.setEnabled(False)
-        self.send_btn.setEnabled(False)
-        self.input_box.setEnabled(False)
+        # Only disable during listening/thinking, NOT during speaking
+        # This allows user to interrupt and send new commands
+        if from_voice:
+            self.mic_btn.setEnabled(False)
+            self.send_btn.setEnabled(False)
+            self.input_box.setEnabled(False)
         
         task_type = "voice_input" if from_voice else "text_input"
+        
         self.worker = WorkerThread(
             task_type,
             self.brain,
             self.speaker,
             self.listener if from_voice else None,
             text,
-            self.voice_enabled
+            self.voice_enabled  # Use voice_enabled flag
         )
         
         self.worker.status_update.connect(self.update_status)
         self.worker.user_message_ready.connect(lambda msg: self.add_message_bubble(msg, is_user=True))
         self.worker.ai_message_complete.connect(lambda msg: self.add_message_bubble(msg, is_user=False))
+        self.worker.ai_message_complete.connect(self.on_ai_response_ready)
         self.worker.error.connect(self.show_error)
         self.worker.finished.connect(self.on_worker_finished)
         
         self.worker.start()
+    
+    def on_ai_response_ready(self, msg):
+        """Re-enable inputs when AI has responded (before/during speaking)"""
+        # Re-enable inputs so user can type while audio plays
+        self.mic_btn.setEnabled(True)
+        self.send_btn.setEnabled(True)
+        self.input_box.setEnabled(True)
+        self.is_busy = False
     
     def on_worker_finished(self):
         """Handle worker completion"""
@@ -1128,6 +1944,492 @@ class SmartAssistantWindow(QMainWindow):
             self.clear_current_chat()
             self.load_chat_history()
             self.update_status("All chats cleared", "#888")
+    
+    def setup_shortcuts(self):
+        """Setup keyboard shortcuts"""
+        # New chat
+        QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(self.new_chat)
+        
+        # Voice input
+        QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(self.start_voice_input)
+        
+        # Clear chat
+        QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(self.clear_current_chat)
+        
+        # Export conversation
+        QShortcut(QKeySequence("Ctrl+E"), self).activated.connect(self.export_conversation)
+        
+        # Settings
+        QShortcut(QKeySequence("Ctrl+,"), self).activated.connect(self.open_settings)
+        
+        # Search
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self.show_search_dialog)
+        
+        # Quick prompts
+        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self.show_quick_prompts)
+        
+        # Voice selection
+        QShortcut(QKeySequence("Ctrl+V"), self).activated.connect(self.show_voice_selector)
+    
+    def export_conversation(self):
+        """Export current conversation"""
+        if not self.brain.conversation_history:
+            QMessageBox.information(self, "Export", "No conversation to export!")
+            return
+        
+        # Ask for format
+        format_dialog = QDialog(self)
+        format_dialog.setWindowTitle("Export Conversation")
+        format_dialog.setModal(True)
+        format_dialog.setMinimumWidth(400)
+        
+        layout = QVBoxLayout()
+        
+        label = QLabel("Select export format:")
+        label.setFont(QFont("Segoe UI", 11))
+        label.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(label)
+        
+        format_combo = QComboBox()
+        format_combo.addItems(["Text (.txt)", "Markdown (.md)", "JSON (.json)"])
+        format_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #2b2b2b;
+                color: #e0e0e0;
+                border: 1px solid #3d3d3d;
+                border-radius: 5px;
+                padding: 8px;
+            }
+        """)
+        layout.addWidget(format_combo)
+        
+        btn_layout = QHBoxLayout()
+        export_btn = QPushButton("Export")
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #10a37f;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #0d8c6e;
+            }
+        """)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+        """)
+        
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(export_btn)
+        layout.addLayout(btn_layout)
+        
+        format_dialog.setLayout(layout)
+        format_dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        
+        export_btn.clicked.connect(format_dialog.accept)
+        cancel_btn.clicked.connect(format_dialog.reject)
+        
+        if format_dialog.exec() == QDialog.DialogCode.Accepted:
+            format_type = format_combo.currentIndex()
+            extensions = [".txt", ".md", ".json"]
+            filters = [
+                "Text Files (*.txt)",
+                "Markdown Files (*.md)",
+                "JSON Files (*.json)"
+            ]
+            
+            filename, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export Conversation",
+                f"conversation_{datetime.now().strftime('%Y%m%d_%H%M%S')}{extensions[format_type]}",
+                filters[format_type]
+            )
+            
+            if filename:
+                try:
+                    self._export_to_file(filename, format_type)
+                    QMessageBox.information(self, "Export", f"Conversation exported to:\n{filename}")
+                    self.update_status("Conversation exported", "#10a37f")
+                except Exception as e:
+                    QMessageBox.critical(self, "Export Error", f"Failed to export:\n{str(e)}")
+    
+    def _export_to_file(self, filename: str, format_type: int):
+        """Export conversation to file"""
+        messages = self.brain.conversation_history
+        
+        if format_type == 0:  # TXT
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write("Smart Assistant Conversation\n")
+                f.write("=" * 50 + "\n")
+                f.write(f"Exported: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                
+                for msg in messages:
+                    role = "You" if msg['role'] == 'user' else "AI"
+                    f.write(f"{role}:\n{msg['content']}\n\n")
+        
+        elif format_type == 1:  # Markdown
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write("# Smart Assistant Conversation\n\n")
+                f.write(f"**Exported:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                f.write("---\n\n")
+                
+                for msg in messages:
+                    role = "👤 **You**" if msg['role'] == 'user' else "🤖 **AI**"
+                    f.write(f"### {role}\n\n")
+                    f.write(f"{msg['content']}\n\n")
+                    f.write("---\n\n")
+        
+        elif format_type == 2:  # JSON
+            export_data = {
+                "exported_at": datetime.now().isoformat(),
+                "conversation_id": self.current_conversation_id,
+                "messages": messages
+            }
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+    
+    def show_search_dialog(self):
+        """Show search dialog"""
+        search_text, ok = QInputDialog.getText(
+            self,
+            "Search Conversations",
+            "Enter search term:",
+            QLineEdit.EchoMode.Normal
+        )
+        
+        if ok and search_text:
+            self._search_conversations(search_text)
+    
+    def _search_conversations(self, query: str):
+        """Search conversations"""
+        try:
+            all_convs = self.memory.list_conversations(limit=100)
+            matches = []
+            
+            for conv in all_convs:
+                # Search in title
+                if query.lower() in conv.get('title', '').lower():
+                    matches.append(conv)
+                    continue
+                
+                # Search in messages
+                messages = conv.get('messages', [])
+                for msg in messages:
+                    if query.lower() in msg.get('content', '').lower():
+                        matches.append(conv)
+                        break
+            
+            if matches:
+                # Show results in a dialog
+                self._show_search_results(query, matches)
+            else:
+                QMessageBox.information(self, "Search", f"No results found for '{query}'")
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Search Error", f"Search failed:\n{str(e)}")
+    
+    def _show_search_results(self, query: str, results: list):
+        """Show search results dialog"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Search Results: '{query}'")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(500)
+        dialog.setMinimumHeight(400)
+        
+        layout = QVBoxLayout()
+        
+        label = QLabel(f"Found {len(results)} result(s)")
+        label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        label.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(label)
+        
+        # Results list
+        results_list = QListWidget()
+        results_list.setStyleSheet("""
+            QListWidget {
+                background-color: #2b2b2b;
+                color: #e0e0e0;
+                border: 1px solid #3d3d3d;
+                border-radius: 5px;
+            }
+            QListWidget::item {
+                padding: 10px;
+                border-bottom: 1px solid #3d3d3d;
+            }
+            QListWidget::item:hover {
+                background-color: #3d3d3d;
+            }
+        """)
+        
+        for result in results:
+            title = result.get('title', 'Untitled')
+            timestamp = result.get('created_at', '')
+            item = QListWidgetItem(f"{title} - {timestamp}")
+            item.setData(Qt.ItemDataRole.UserRole, result.get('id'))
+            results_list.addItem(item)
+        
+        results_list.itemDoubleClicked.connect(
+            lambda item: self._load_search_result(item, dialog)
+        )
+        layout.addWidget(results_list)
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.reject)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+        """)
+        layout.addWidget(close_btn)
+        
+        dialog.setLayout(layout)
+        dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        dialog.exec()
+    
+    def _load_search_result(self, item, dialog):
+        """Load conversation from search result"""
+        conv_id = item.data(Qt.ItemDataRole.UserRole)
+        self.load_conversation(conv_id)
+        dialog.accept()
+    
+    def show_quick_prompts(self):
+        """Show quick prompts dialog"""
+        dialog = QuickPromptsDialog(self)
+        dialog.prompt_selected.connect(self._use_quick_prompt)
+        dialog.exec()
+    
+    def _use_quick_prompt(self, prompt: str):
+        """Use selected quick prompt"""
+        self.input_box.setText(prompt)
+        self.input_box.setFocus()
+    
+    def show_voice_selector(self):
+        """Show voice selection dialog"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Voice Selection")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(500)
+        dialog.setMinimumHeight(400)
+        
+        layout = QVBoxLayout()
+        
+        title = QLabel("Select Voice")
+        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        title.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(title)
+        
+        # Get available voices
+        voices = self.speaker.get_voices()
+        
+        # Voice list
+        voice_list = QListWidget()
+        voice_list.setStyleSheet("""
+            QListWidget {
+                background-color: #2b2b2b;
+                color: #e0e0e0;
+                border: 1px solid #3d3d3d;
+                border-radius: 5px;
+            }
+            QListWidget::item {
+                padding: 12px;
+                border-bottom: 1px solid #3d3d3d;
+            }
+            QListWidget::item:hover {
+                background-color: #3d3d3d;
+            }
+            QListWidget::item:selected {
+                background-color: #10a37f;
+            }
+        """)
+        
+        for voice in voices:
+            item = QListWidgetItem(voice.name)
+            item.setData(Qt.ItemDataRole.UserRole, voice.id)
+            voice_list.addItem(item)
+        
+        layout.addWidget(voice_list)
+        
+        # Voice speed
+        speed_layout = QHBoxLayout()
+        speed_label = QLabel("Speed:")
+        speed_label.setStyleSheet("color: #e0e0e0;")
+        speed_layout.addWidget(speed_label)
+        
+        speed_slider = QSlider(Qt.Orientation.Horizontal)
+        speed_slider.setMinimum(50)
+        speed_slider.setMaximum(300)
+        speed_slider.setValue(150)
+        speed_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                background: #3d3d3d;
+                height: 8px;
+                border-radius: 4px;
+            }
+            QSlider::handle:horizontal {
+                background: #10a37f;
+                width: 18px;
+                margin: -5px 0;
+                border-radius: 9px;
+            }
+        """)
+        speed_layout.addWidget(speed_slider)
+        
+        speed_value = QLabel("150 WPM")
+        speed_value.setStyleSheet("color: #888;")
+        speed_layout.addWidget(speed_value)
+        
+        speed_slider.valueChanged.connect(
+            lambda v: speed_value.setText(f"{v} WPM")
+        )
+        
+        layout.addLayout(speed_layout)
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        
+        test_btn = QPushButton("Test Voice")
+        test_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+            }
+        """)
+        test_btn.clicked.connect(
+            lambda: self._test_voice(voice_list.currentItem())
+        )
+        
+        apply_btn = QPushButton("Apply")
+        apply_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #10a37f;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #0d8c6e;
+            }
+        """)
+        apply_btn.clicked.connect(
+            lambda: self._apply_voice(voice_list.currentItem(), speed_slider.value(), dialog)
+        )
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+        """)
+        
+        btn_layout.addWidget(test_btn)
+        btn_layout.addStretch()
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(apply_btn)
+        layout.addLayout(btn_layout)
+        
+        dialog.setLayout(layout)
+        dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        dialog.exec()
+    
+    def _test_voice(self, item):
+        """Test selected voice"""
+        if item:
+            voice_id = item.data(Qt.ItemDataRole.UserRole)
+            self.speaker.set_voice(voice_id)
+            self.speaker.speak("Hello! This is how I sound.")
+    
+    def _apply_voice(self, item, speed, dialog):
+        """Apply voice settings"""
+        if item:
+            voice_id = item.data(Qt.ItemDataRole.UserRole)
+            self.speaker.set_voice(voice_id)
+            self.speaker.set_rate(speed)
+            QMessageBox.information(self, "Voice Settings", "Voice settings applied!")
+            dialog.accept()
+    
+    def show_statistics(self):
+        """Show statistics dashboard"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Statistics")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(500)
+        dialog.setMinimumHeight(300)
+        
+        layout = QVBoxLayout()
+        
+        title = QLabel("📊 Statistics Dashboard")
+        title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        title.setStyleSheet("color: #10a37f;")
+        layout.addWidget(title)
+        
+        # Calculate statistics
+        all_convs = self.memory.list_conversations(limit=1000)
+        total_convs = len(all_convs)
+        total_messages = sum(len(c.get('messages', [])) for c in all_convs)
+        
+        stats_layout = QGridLayout()
+        stats = [
+            ("Total Conversations:", str(total_convs)),
+            ("Total Messages:", str(total_messages)),
+            ("Current Conversation:", str(len(self.brain.conversation_history)) + " messages"),
+        ]
+        
+        for i, (label, value) in enumerate(stats):
+            label_widget = QLabel(label)
+            label_widget.setFont(QFont("Segoe UI", 11))
+            label_widget.setStyleSheet("color: #e0e0e0;")
+            
+            value_widget = QLabel(value)
+            value_widget.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            value_widget.setStyleSheet("color: #10a37f;")
+            
+            stats_layout.addWidget(label_widget, i, 0)
+            stats_layout.addWidget(value_widget, i, 1)
+        
+        layout.addLayout(stats_layout)
+        layout.addStretch()
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.reject)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+        """)
+        layout.addWidget(close_btn)
+        
+        dialog.setLayout(layout)
+        dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        dialog.exec()
     
     def closeEvent(self, event):
         """Handle window close"""

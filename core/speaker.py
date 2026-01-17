@@ -122,8 +122,16 @@ class Speaker:
         self.stop_requested = True
         try:
             self.engine.stop()
-        except:
-            pass
+            # Reinitialize engine to prevent issues on next speak
+            import pyttsx3
+            self.engine = pyttsx3.init()
+            # Restore settings
+            self.engine.setProperty('rate', PYTTSX3_RATE) # Use config value
+            self.engine.setProperty('volume', PYTTSX3_VOLUME) # Use config value
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"Error stopping speech: {e}")
+        self._speaking = False
         print("🛑 Speech stopped")
     
     def is_speaking(self) -> bool:
