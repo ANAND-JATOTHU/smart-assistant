@@ -1,8 +1,19 @@
 # Changelog
 
-## [Unreleased] - 2026-01-17
+## [Unreleased] - 2026-01-18
 
 ### Added
+- **RAG (Retrieval Augmented Generation)** - Intelligent document Q&A system
+  - Text chunking with overlap for better context preservation
+  - Offline semantic search using sentence-transformers
+  - Automatic embedding generation for uploaded documents
+  - Context-aware AI responses based on document content
+- **Enhanced File Upload GUI**
+  - Visual file cards with icons, names, and sizes
+  - Scrollable file preview panel
+  - Individual file removal with ✕ button
+  - File count badge on attach button
+  - Support for PDF, DOCX, TXT, MD, images (OCR)
 - Per-message audio playback buttons on AI responses
 - Document upload system supporting PDF, DOCX, TXT, and images
 - OCR support for extracting text from images

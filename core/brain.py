@@ -28,12 +28,13 @@ from intelligence.command_parser import parse_and_execute
 class AIBrain:
     """Offline AI brain using local GGUF models only"""
     
-    def __init__(self, model_path: str = GGUF_MODEL_PATH):
-        """Initialize the offline AI brain"""
+    def __init__(self, model_path: str = GGUF_MODEL_PATH, document_processor=None):
+        """Initialize the offline AI brain with optional document processor for RAG"""
         self.model_path = model_path
         self.conversation_history = []
         self.memory = Memory()
         self.llm_gguf = None
+        self.document_processor = document_processor  # For RAG functionality
         self.current_model = "Local GGUF (Offline)"
         
         # Get user name
@@ -176,7 +177,7 @@ Keep responses natural, friendly, and concise. I work 100% offline to protect yo
     
     def ask(self, prompt: str, use_history: bool = True) -> Optional[str]:
         """
-        Send prompt to local GGUF model (100% offline)
+        Send prompt to local GGUF model with RAG context (100% offline)
         """
         try:
             # Check for system commands first
@@ -204,8 +205,16 @@ Keep responses natural, friendly, and concise. I work 100% offline to protect yo
             if not self.llm_gguf:
                 return "AI model not loaded. Please check the configuration."
             
+            # Get RAG context if documents are available
+            enhanced_prompt = prompt
+            if self.document_processor and hasattr(self.document_processor, 'get_relevant_context'):
+                doc_context = self.document_processor.get_relevant_context(prompt)
+                if doc_context:
+                    enhanced_prompt = f"{doc_context}\n\nUser Question: {prompt}\n\nPlease answer based on the provided context."
+                    print("📚 Using RAG context from documents")
+            
             print("💻 Using local GGUF model (offline)")
-            ai_response = self._ask_gguf(prompt)
+            ai_response = self._ask_gguf(enhanced_prompt)
             
             if not ai_response:
                 ai_response = "I'm sorry, I couldn't process that. Please try again."

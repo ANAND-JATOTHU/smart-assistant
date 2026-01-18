@@ -734,6 +734,104 @@ class ChatHistoryItem(QWidget):
             self.delete_requested.emit(self.conv_id)
 
 
+class AttachedFileCard(QFrame):
+    """Visual card for attached document files"""
+    
+    remove_requested = pyqtSignal(str)  # filename
+    
+    def __init__(self, filename: str, file_type: str, size: int, parent=None):
+        super().__init__(parent)
+        self.filename = filename
+        self.file_type = file_type
+        self.size = size
+        self._setup_ui()
+    
+    def _get_file_icon(self):
+        """Get emoji icon based on file type"""
+        icons = {
+            'pdf': '📄',
+            'document': '📝',
+            'image': '🖼️',
+            'video': '🎬'
+        }
+        return icons.get(self.file_type, '📎')
+    
+    def _format_size(self, size_bytes):
+        """Format file size in human-readable form"""
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size_bytes < 1024.0:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024.0
+        return f"{size_bytes:.1f} TB"
+    
+    def _setup_ui(self):
+        """Setup the file card UI"""
+        layout = QHBoxLayout()
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
+        
+        # File icon
+        icon_label = QLabel(self._get_file_icon())
+        icon_label.setFont(QFont("Segoe UI", 20))
+        icon_label.setStyleSheet("background: transparent;")
+        layout.addWidget(icon_label)
+        
+        # File info
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(2)
+        
+        name_label = QLabel(self.filename)
+        name_label.setFont(QFont("Segoe UI", 10))
+        name_label.setStyleSheet("color: #e0e0e0; background: transparent;")
+        name_label.setMaximumWidth(200)
+        name_label.setWordWrap(False)
+        # Ellipsis for long names
+        name_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        info_layout.addWidget(name_label)
+        
+        size_label = QLabel(f"{self.file_type.upper()} • {self._format_size(self.size)}")
+        size_label.setFont(QFont("Segoe UI", 8))
+        size_label.setStyleSheet("color: #888; background: transparent;")
+        info_layout.addWidget(size_label)
+        
+        layout.addLayout(info_layout)
+        layout.addStretch()
+        
+        # Remove button
+        remove_btn = QPushButton("✕")
+        remove_btn.setFixedSize(24, 24)
+        remove_btn.setToolTip("Remove file")
+        remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_btn.clicked.connect(lambda: self.remove_requested.emit(self.filename))
+        remove_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e0e0e0;
+                border: none;
+                border-radius: 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #e74c3c;
+                color: white;
+            }
+        """)
+        layout.addWidget(remove_btn)
+        
+        self.setLayout(layout)
+        self.setStyleSheet("""
+            AttachedFileCard {
+                background-color: #2b2b2b;
+                border: 1px solid #3d3d3d;
+                border-radius: 8px;
+            }
+            AttachedFileCard:hover {
+                border-color: #10a37f;
+            }
+        """)
+        self.setMaximumHeight(60)
+
+
 class SettingsDialog(QDialog):
     """Settings dialog"""
     
@@ -925,7 +1023,8 @@ class SmartAssistantWindow(QMainWindow):
         
         try:
             self.listener = SpeechListener()
-            self.brain = AIBrain()
+            self.document_processor = DocumentProcessor()  # Initialize document processor first
+            self.brain = AIBrain(document_processor=self.document_processor)  # Pass to brain for RAG
             self.speaker = Speaker()
             self.memory = Memory()
             print("✅ All components initialized")
@@ -987,6 +1086,108 @@ class SmartAssistantWindow(QMainWindow):
         # Apply dark theme
         self.apply_dark_theme()
     
+    def create_input_area(self):
+        """Create input area with buttons"""
+        input_widget = QWidget()
+        input_widget.setMaximumHeight(180)  # Increased for file cards
+        input_widget.setStyleSheet("background-color: #1e1e1e; border-top: 1px solid #3d3d3d;")
+        
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # File cards area (scrollable)
+        self.files_scroll = QScrollArea()
+        self.files_scroll.setWidgetResizable(True)
+        self.files_scroll.setMaximumHeight(100)
+        self.files_scroll.setVisible(False)  # Hidden by default
+        self.files_scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: #1e1e1e;
+            }
+        """)
+        
+        files_widget = QWidget()
+        self.files_layout = QHBoxLayout()
+        self.files_layout.setSpacing(8)
+        self.files_layout.setContentsMargins(15, 8, 15, 8)
+        self.files_layout.addStretch()
+        files_widget.setLayout(self.files_layout)
+        
+        self.files_scroll.setWidget(files_widget)
+        main_layout.addWidget(self.files_scroll)
+        
+        # Input row
+        layout = QHBoxLayout()
+        layout.setContentsMargins(15, 10, 15, 10)
+        layout.setSpacing(10)
+        
+        # Hamburger menu (starts in sidebar)
+        self.sidebar_ham_widget = QWidget()
+        self.sidebar_ham_layout = QHBoxLayout()
+        self.sidebar_ham_layout.setContentsMargins(10, 10, 10, 5)
+        self.hamburger_btn = AnimatedButton("☰")
+        self.hamburger_btn.setFixedSize(35, 35)
+        self.hamburger_btn.setToolTip("Show Sidebar")
+        self.hamburger_btn.clicked.connect(self.toggle_sidebar)
+        self.hamburger_btn.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        self.sidebar_ham_layout.addWidget(self.hamburger_btn)
+        self.sidebar_ham_layout.addStretch()
+        self.sidebar_ham_widget.setLayout(self.sidebar_ham_layout)
+        self.sidebar_ham_widget.setVisible(False) # Hidden by default, shown when sidebar is hidden
+        layout.addWidget(self.sidebar_ham_widget)
+        
+        # Attach button
+        attach_btn = AnimatedButton("📎")
+        attach_btn.setFixedSize(35, 35)
+        attach_btn.setToolTip("Attach Document")
+        attach_btn.clicked.connect(self.attach_document)
+        attach_btn.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        layout.addWidget(attach_btn)
+        
+        # Text input
+        self.text_input = ResizingTextEdit()
+        self.text_input.setPlaceholderText("Type your message or ask a question...")
+        self.text_input.setFont(QFont("Segoe UI", 10))
+        self.text_input.setStyleSheet("""
+            QTextEdit {
+                background-color: #2b2b2b;
+                color: #e0e0e0;
+                border: 1px solid #3d3d3d;
+                border-radius: 8px;
+                padding: 8px;
+                selection-background-color: #10a37f;
+            }
+            QTextEdit:focus {
+                border: 1px solid #10a37f;
+            }
+        """)
+        self.text_input.textChanged.connect(self.update_send_button_state)
+        self.text_input.installEventFilter(self) # For Enter key
+        layout.addWidget(self.text_input)
+        
+        # Send button
+        self.send_button = AnimatedButton("➤")
+        self.send_button.setFixedSize(35, 35)
+        self.send_button.setToolTip("Send Message")
+        self.send_button.clicked.connect(self.send_message)
+        self.send_button.setStyleSheet("""QPushButton { background-color: #10a37f; color: white; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #0d8c6e; } QPushButton:disabled { background-color: #3d3d3d; color: #888; }""")
+        self.send_button.setEnabled(False) # Disabled by default
+        layout.addWidget(self.send_button)
+        
+        # Voice input button
+        self.voice_input_button = AnimatedButton("🎙️")
+        self.voice_input_button.setFixedSize(35, 35)
+        self.voice_input_button.setToolTip("Voice Input")
+        self.voice_input_button.clicked.connect(self.toggle_voice_input)
+        self.voice_input_button.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        layout.addWidget(self.voice_input_button)
+        
+        main_layout.addLayout(layout)
+        input_widget.setLayout(main_layout)
+        return input_widget
+
     def create_sidebar(self):
         """Create sidebar with chat history and settings"""
         sidebar = QWidget()
@@ -1443,7 +1644,8 @@ class SmartAssistantWindow(QMainWindow):
         """)
         layout.addWidget(self.send_btn)
         
-        input_widget.setLayout(layout)
+        main_layout.addLayout(layout)
+        input_widget.setLayout(main_layout)
         return input_widget
     
     def apply_dark_theme(self):
@@ -1750,7 +1952,7 @@ class SmartAssistantWindow(QMainWindow):
                 self.attach_document(filepath)
     
     def attach_document(self, filepath: str):
-        """Process and attach a document"""
+        """Process and attach a document with visual card"""
         try:
             # Process the document
             result = self.document_processor.process_file(filepath)
@@ -1758,29 +1960,88 @@ class SmartAssistantWindow(QMainWindow):
             # Add to attached files
             self.attached_files.append(result)
             
-            # Show notification
+            # Create file card
+            file_card = AttachedFileCard(
+                result['filename'],
+                result['type'],
+                result['size'],
+                self
+            )
+            file_card.remove_requested.connect(self.remove_attached_file)
+            
+            # Add card to layout (before stretch)
+            self.files_layout.insertWidget(self.files_layout.count() - 1, file_card)
+            
+            # Show files area
+            if not self.files_scroll.isVisible():
+                self.files_scroll.setVisible(True)
+            
+            # Show notification with snippet
             filename = result['filename']
             file_type = result['type']
-            self.update_status(f"Attached {filename} ({file_type})", "#10a37f")
+            text_preview = result.get('text', '')[:100] + "..." if result.get('text') else ""
             
-            # Update attach button to show count
-            if len(self.attached_files) > 0:
-                self.attach_btn.setText(f"📎 {len(self.attached_files)}")
+            # Update attach button badge
+            count = len(self.attached_files)
+            self.attach_btn.setText(f"📎{count}" if count > 0 else "📎")
+            if count > 0:
                 self.attach_btn.setStyleSheet("""
                     QPushButton {
                         background-color: #10a37f;
                         color: white;
                         border: none;
                         border-radius: 25px;
-                        font-size: 14px;
+                        font-size: 16px;
+                        font-weight: bold;
                     }
                     QPushButton:hover {
                         background-color: #0d8c6e;
                     }
                 """)
             
+            self.update_status(f"Attached {filename} ({file_type}) - Ready for questions!", "#10a37f")
+            
         except Exception as e:
             QMessageBox.warning(self, "Attachment Error", f"Could not attach file:\n{str(e)}")
+    
+    def remove_attached_file(self, filename: str):
+        """Remove a specific attached file"""
+        # Find and remove from list
+        self.attached_files = [f for f in self.attached_files if f['filename'] != filename]
+        
+        # Remove card from layout
+        for i in range(self.files_layout.count()):
+            item = self.files_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, AttachedFileCard) and widget.filename == filename:
+                    widget.deleteLater()
+                    break
+        
+        # Update UI
+        count = len(self.attached_files)
+        if count == 0:
+            self.files_scroll.setVisible(False)
+            self.attach_btn.setText("📎")
+            self.attach_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #3d3d3d;
+                    color: white;
+                    border: none;
+                    border-radius: 25px;
+                    font-size: 18px;
+                }
+                QPushButton:hover {
+                    background-color: #4d4d4d;
+                }
+            """)
+            # Clear document processor chunks
+            if hasattr(self.document_processor, 'clear_documents'):
+                self.document_processor.clear_documents()
+        else:
+            self.attach_btn.setText(f"📎{count}")
+        
+        self.update_status(f"Removed {filename}", "#888")
     
     def send_message(self):
         """Send text message"""
