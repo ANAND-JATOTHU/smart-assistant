@@ -1644,8 +1644,7 @@ class SmartAssistantWindow(QMainWindow):
         """)
         layout.addWidget(self.send_btn)
         
-        main_layout.addLayout(layout)
-        input_widget.setLayout(main_layout)
+        input_widget.setLayout(layout)
         return input_widget
     
     def apply_dark_theme(self):
