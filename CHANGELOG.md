@@ -1,6 +1,11 @@
 # Changelog
 
-## [Unreleased] - 2026-01-18
+## [1.1.0] - 2026-01-20
+
+### Fixed
+- Duplicate `__init__` method in VoiceVisualization class that prevented proper initialization
+
+## [1.0.1] - 2026-01-18
 
 ### Added
 - **RAG (Retrieval Augmented Generation)** - Intelligent document Q&A system
