@@ -154,7 +154,8 @@ class MessageBubble(QFrame):
         self.is_user = is_user
         self.timestamp = timestamp
         self.parent_window = parent
-        self.is_playing = False
+        self.is_playing = False  # Track if audio is currently playing
+        print(f"📦 Created MessageBubble: is_user={is_user}, message_preview={message[:30]}...")
         self._setup_ui()
         self._setup_animation()
     
@@ -247,15 +248,60 @@ class MessageBubble(QFrame):
         QTimer.singleShot(50, self.fade_anim.start)
     
     def play_message_audio(self):
-        if self.parent_window and hasattr(self.parent_window, 'play_message_audio'):
+        """Toggle play/stop audio for this message bubble"""
+        try:
+            print(f"\n{'='*60}")
+            print(f"🎵 AUDIO BUTTON CLICKED")
+            print(f"   Message preview: {self.message[:50]}...")
+            print(f"   Current state: is_playing={self.is_playing}")
+            print(f"{'='*60}\n")
+            
+            # Check if currently playing - if so, STOP
+            if self.is_playing:
+                print("⏸️  STOP requested (button was in pause state)")
+                if not self.parent_window:
+                    print("❌ Error: parent_window is None")
+                    return
+                if hasattr(self.parent_window, 'stop_message_audio'):
+                    print("✅ Calling parent window's stop_message_audio method")
+                    self.parent_window.stop_message_audio()
+                else:
+                    print("❌ Error: parent_window does not have stop_message_audio method")
+                return
+            
+            # Otherwise, PLAY
+            print("🔊 PLAY requested (button was in play state)")
+            
+            # Verify parent window exists
+            if not self.parent_window:
+                print("❌ Error: parent_window is None")
+                return
+            
+            # Verify parent has the play_message_audio method
+            if not hasattr(self.parent_window, 'play_message_audio'):
+                print(f"❌ Error: parent_window {type(self.parent_window)} does not have play_message_audio method")
+                return
+            
+            # Call the parent window's play method
+            print("✅ Calling parent window's play_message_audio method")
             self.parent_window.play_message_audio(self.message, self)
+            
+        except Exception as e:
+            print(f"❌ Error in MessageBubble.play_message_audio: {e}")
+            import traceback
+            traceback.print_exc()
     
     def set_playing(self, playing: bool):
+        """Update playing state and button UI"""
+        print(f"🎨 MessageBubble.set_playing({playing}) called")
+        self.is_playing = playing  # Update state
         if hasattr(self, 'play_btn'):
             if playing:
+                print("   → Setting button to PAUSE icon (⏸)")
                 self.play_btn.setText("⏸")
                 self.play_btn.setStyleSheet("QPushButton { background-color: #10a37f; color: white; border: none; border-radius: 13px; font-size: 12px; } QPushButton:hover { background-color: #0d8c6e; }")
             else:
+                print("   → Setting button to PLAY icon (🔊)")
                 self.play_btn.setText("🔊")
                 self.play_btn.setStyleSheet("QPushButton { background-color: #3d3d3d; color: white; border: none; border-radius: 13px; font-size: 12px; } QPushButton:hover { background-color: #10a37f; }")
 
@@ -1861,17 +1907,27 @@ class SmartAssistantWindow(QMainWindow):
     def play_message_audio(self, message: str, bubble: 'MessageBubble'):
         """Play audio for a specific message"""
         try:
+            print(f"\n{'='*60}")
+            print("🎶 MAIN WINDOW: play_message_audio called")
+            print(f"   Message preview: {message[:50]}...")
+            print(f"   Bubble: {bubble}")
+            print(f"{'='*60}\n")
+            
             # Stop any currently playing message
+            print("🛑 Stopping any currently playing audio first...")
             self.stop_message_audio()
             
             # Set this bubble as currently playing
+            print(f"🎯 Setting bubble as currently playing")
             self.currently_playing_bubble = bubble
             bubble.set_playing(True)
             
             # Update status
+            print("📊 Updating status bar")
             self.update_status("🔊 Playing message...", "#10a37f")
             
             # Create background thread for speaking
+            print("🧵 Creating speak thread...")
             from PyQt6.QtCore import QThread, pyqtSignal
             class SpeakThread(QThread):
                 finished = pyqtSignal()
@@ -1883,33 +1939,78 @@ class SmartAssistantWindow(QMainWindow):
                 
                 def run(self):
                     try:
+                        print(f"🎙️  Thread: Starting to speak: {self.text[:30]}...")
                         self.speaker.speak(self.text)
+                        print("✅ Thread: Speaking completed")
                     except Exception as e:
-                        print(f"Error speaking: {e}")
+                        print(f"❌ Thread: Error speaking: {e}")
                     self.finished.emit()
             
             self.speak_thread = SpeakThread(self.speaker, message)
             self.speak_thread.finished.connect(lambda: self.on_speak_finished(bubble))
+            print("▶️  Starting speak thread...")
             self.speak_thread.start()
+            print("✅ Speak thread started successfully\n")
             
         except Exception as e:
-            print(f"Error in play_message_audio: {e}")
+            print(f"❌ Error in play_message_audio: {e}")
+            import traceback
+            traceback.print_exc()
             bubble.set_playing(False)
+    
     
     def on_speak_finished(self, bubble):
         """Called when speaking finishes"""
+        print(f"\n🏁 on_speak_finished called for bubble")
         bubble.set_playing(False)
         self.update_status("Ready", "#888")
+        print("✅ Audio playback finished naturally\n")
+    
     
     def stop_message_audio(self):
         """Stop currently playing message audio"""
+        print(f"\n{'='*60}")
+        print("🛑 STOP_MESSAGE_AUDIO called")
+        print(f"{'='*60}\n")
+        
+        # Update UI status
+        print("🎯 Updating status to 'Stopped'")
+        self.update_status("Stopped", "#888")
+        
+        # Reset playing bubble
         if hasattr(self, 'currently_playing_bubble') and self.currently_playing_bubble:
+            print(f"🔄 Resetting currently playing bubble (was playing: {self.currently_playing_bubble.is_playing})")
             self.currently_playing_bubble.set_playing(False)
             self.currently_playing_bubble = None
+        else:
+            print("⚠️  No currently playing bubble to reset")
         
+        # Stop the speaker
+        print("🔇 Stopping speaker...")
+        if self.speaker:
+            try:
+                self.speaker.stop()
+                print("✅ Speaker stopped successfully")
+            except Exception as e:
+                print(f"❌ Error stopping speaker: {e}")
+        else:
+            print("⚠️  No speaker instance found")
+        
+        # Stop the thread
         if hasattr(self, 'speak_thread') and self.speak_thread and self.speak_thread.isRunning():
-            self.speaker.stop()
-            self.speak_thread.wait(500)
+            print("🧵 Terminating speak thread...")
+            try:
+                self.speak_thread.terminate()
+                self.speak_thread.wait(500)
+                print("✅ Thread terminated successfully")
+            except Exception as e:
+                print(f"❌ Error terminating thread: {e}")
+        else:
+            print("⚠️  No running speak thread to terminate")
+        
+        print(f"\n{'='*60}")
+        print("✅ STOP_MESSAGE_AUDIO completed")
+        print(f"{'='*60}\n")
     
     def stop_audio(self):
         """Stop current audio playback and cancel operation"""
