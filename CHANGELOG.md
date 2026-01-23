@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0] - 2026-01-23
+
+### Improved
+- **Modern GUI Visual Design** - Premium, state-of-the-art interface
+  - Vibrant cyan/teal gradient color scheme
+  - Deeper, richer black backgrounds for better contrast
+  - Enhanced typography with larger, more readable fonts
+  - Message bubbles with subtle shadows for depth perception
+  - Smooth rounded corners (20px) throughout the UI
+  - Improved button designs with hover effects
+  - Modern typing indicator with cyan accent
+  - Enhanced welcome screen with better visual hierarchy
+  - Better color contrast for improved readability
+  - Consistent spacing and modern aesthetics
+
 ## [1.1.0] - 2026-01-20
 
 ### Fixed

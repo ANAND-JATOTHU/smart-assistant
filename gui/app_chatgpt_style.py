@@ -72,11 +72,11 @@ class WorkerThread(QThread):
     def _process_voice_input(self):
         """Process voice input"""
         try:
-            self.status_update.emit("🎤 Listening...", "#10a37f")
+            self.status_update.emit("🎤 Listening...", "#00d9ff")
             user_text = self.listener.listen()
             
             if self._stop_flag or not user_text:
-                self.status_update.emit("Ready", "#888")
+                self.status_update.emit("Ready", "#a0a0a0")
                 return
             
             self.user_message_ready.emit(user_text)
@@ -97,7 +97,7 @@ class WorkerThread(QThread):
     def _get_ai_response(self, user_input: str):
         """Get and process AI response"""
         try:
-            self.status_update.emit("🤔 Thinking...", "#10a37f")
+            self.status_update.emit("🤔 Thinking...", "#00d9ff")
             ai_response = self.brain.ask(user_input)
             
             if self._stop_flag:
@@ -109,10 +109,10 @@ class WorkerThread(QThread):
             self.ai_message_complete.emit(ai_response)
             
             if self.use_voice and not self._stop_flag:
-                self.status_update.emit("🔊 Speaking...", "#10a37f")
+                self.status_update.emit("🔊 Speaking...", "#00d9ff")
                 self.speaker.speak(ai_response)
             
-            self.status_update.emit("Ready", "#888")
+            self.status_update.emit("Ready", "#a0a0a0")
             
         except Exception as e:
             self.error.emit(f"AI response error: {str(e)}")
@@ -162,32 +162,36 @@ class MessageBubble(QFrame):
     def _setup_ui(self):
         """Setup the bubble UI"""
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 10, 15, 10)
-        layout.setSpacing(5)
+        layout.setContentsMargins(18, 14, 18, 14)  # More padding
+        layout.setSpacing(8)
         
         # AI message header with play button
         if not self.is_user:
             header = QHBoxLayout()
             ai_label = QLabel("🤖 AI")
-            ai_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-            ai_label.setStyleSheet("color: #10a37f; background: transparent;")
+            ai_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+            ai_label.setStyleSheet("color: #00d9ff; background: transparent;")
             header.addWidget(ai_label)
             header.addStretch()
             
             self.play_btn = QPushButton("🔊")
-            self.play_btn.setFixedSize(26, 26)
+            self.play_btn.setFixedSize(30, 30)
             self.play_btn.setToolTip("Play message")
             self.play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.play_btn.clicked.connect(self.play_message_audio)
             self.play_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #3d3d3d;
+                    background-color: #2d2d2d;
                     color: white;
                     border: none;
-                    border-radius: 13px;
-                    font-size: 12px;
+                    border-radius: 15px;
+                    font-size: 14px;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 }
-                QPushButton:hover { background-color: #10a37f; }
+                QPushButton:hover {
+                    background-color: #00d9ff;
+                    transform: scale(1.1);
+                }
             """)
             header.addWidget(self.play_btn)
             layout.addLayout(header)
@@ -195,10 +199,11 @@ class MessageBubble(QFrame):
         message_label = QLabel(self.message)
         message_label.setWordWrap(True)
         message_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        message_label.setFont(QFont("Segoe UI", 10))
+        message_label.setFont(QFont("Segoe UI", 11))  # Larger font
         
         time_label = QLabel(self.timestamp)
-        time_label.setFont(QFont("Segoe UI", 8))
+        time_label.setFont(QFont("Segoe UI", 9))
+        time_label.setStyleSheet("opacity: 0.7;")
         
         layout.addWidget(message_label)
         layout.addWidget(time_label, alignment=Qt.AlignmentFlag.AlignRight)
@@ -209,9 +214,10 @@ class MessageBubble(QFrame):
             self.setStyleSheet("""
                 MessageBubble {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                        stop:0 #10a37f, stop:1 #0d8c6e);
-                    border-radius: 18px;
+                        stop:0 #00d9ff, stop:1 #00d9ff);
+                    border-radius: 20px;
                     color: white;
+                    border: none;
                 }
                 QLabel {
                     background-color: transparent;
@@ -221,18 +227,26 @@ class MessageBubble(QFrame):
         else:
             self.setStyleSheet("""
                 MessageBubble {
-                    background-color: #2b2b2b;
-                    border: 1px solid #3d3d3d;
-                    border-radius: 18px;
-                    color: #e0e0e0;
+                    background-color: #1a1a1a;
+                    border: 1px solid #2d2d2d;
+                    border-radius: 20px;
+                    color: #ffffff;
                 }
                 QLabel {
                     background-color: transparent;
-                    color: #e0e0e0;
+                    color: #ffffff;
                 }
             """)
         
-        self.setMaximumWidth(600)
+        # Add subtle shadow effect
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 3)
+        self.setGraphicsEffect(shadow)
+        
+        self.setMaximumWidth(650)  # Slightly wider
     
     def _setup_animation(self):
         """Setup fade-in animation"""
@@ -299,11 +313,11 @@ class MessageBubble(QFrame):
             if playing:
                 print("   → Setting button to PAUSE icon (⏸)")
                 self.play_btn.setText("⏸")
-                self.play_btn.setStyleSheet("QPushButton { background-color: #10a37f; color: white; border: none; border-radius: 13px; font-size: 12px; } QPushButton:hover { background-color: #0d8c6e; }")
+                self.play_btn.setStyleSheet("QPushButton { background-color: #00d9ff; color: white; border: none; border-radius: 15px; font-size: 14px; } QPushButton:hover { background-color: #00b8d4; }")
             else:
                 print("   → Setting button to PLAY icon (🔊)")
                 self.play_btn.setText("🔊")
-                self.play_btn.setStyleSheet("QPushButton { background-color: #3d3d3d; color: white; border: none; border-radius: 13px; font-size: 12px; } QPushButton:hover { background-color: #10a37f; }")
+                self.play_btn.setStyleSheet("QPushButton { background-color: #2d2d2d; color: white; border: none; border-radius: 15px; font-size: 14px; } QPushButton:hover { background-color: #00d9ff; }")
 
 
 class TypingIndicator(QFrame):
@@ -318,25 +332,25 @@ class TypingIndicator(QFrame):
         """Setup UI"""
         self.setStyleSheet("""
             TypingIndicator {
-                background-color: #2b2b2b;
-                border: 1px solid #3d3d3d;
-                border-radius: 18px;
+                background-color: #1a1a1a;
+                border: 1px solid #2d2d2d;
+                border-radius: 20px;
                 padding: 15px 20px;
             }
         """)
-        self.setMaximumWidth(80)
-        self.setFixedHeight(50)
+        self.setMaximumWidth(85)
+        self.setFixedHeight(55)
         
         layout = QHBoxLayout()
-        layout.setContentsMargins(10, 0, 10, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(12, 0, 12, 0)
+        layout.setSpacing(10)
         
         # Create three dots
         self.dots = []
         for i in range(3):
             dot = QLabel("●")
-            dot.setFont(QFont("Segoe UI", 12))
-            dot.setStyleSheet("color: #888; background: transparent;")
+            dot.setFont(QFont("Segoe UI", 14))
+            dot.setStyleSheet("color: #a0a0a0; background: transparent;")
             layout.addWidget(dot)
             self.dots.append(dot)
         
@@ -362,10 +376,10 @@ class TypingIndicator(QFrame):
         """Animate the dots"""
         # Reset all dots
         for dot in self.dots:
-            dot.setStyleSheet("color: #888; background: transparent;")
+            dot.setStyleSheet("color: #a0a0a0; background: transparent;")
         
         # Highlight current dot
-        self.dots[self.current_dot].setStyleSheet("color: #10a37f; background: transparent;")
+        self.dots[self.current_dot].setStyleSheet("color: #00d9ff; background: transparent;")
         self.current_dot = (self.current_dot + 1) % 3
 
 
@@ -386,38 +400,38 @@ class WelcomeScreen(QWidget):
         
         # Welcome title
         title = QLabel("👋 Welcome to Smart Assistant")
-        title.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
-        title.setStyleSheet("color: #10a37f;")
+        title.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
+        title.setStyleSheet("color: #00d9ff;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
         
         # Subtitle
         subtitle = QLabel("Your 100% Offline AI Assistant")
-        subtitle.setFont(QFont("Segoe UI", 14))
-        subtitle.setStyleSheet("color: #888;")
+        subtitle.setFont(QFont("Segoe UI", 16))
+        subtitle.setStyleSheet("color: #a0a0a0;")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(subtitle)
         
         # Offline badge
         badge = QLabel("🔒 Fully Offline • Privacy Protected")
-        badge.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        badge.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         badge.setStyleSheet("""
-            background-color: #2b2b2b;
-            color: #10a37f;
-            padding: 10px 20px;
-            border-radius: 20px;
-            border: 1px solid #10a37f;
+            background-color: rgba(0, 217, 255, 0.1);
+            color: #00d9ff;
+            padding: 12px 25px;
+            border-radius: 25px;
+            border: 2px solid #00d9ff;
         """)
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        badge.setFixedHeight(40)
+        badge.setFixedHeight(50)
         layout.addWidget(badge, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        layout.addSpacing(20)
+        layout.addSpacing(30)
         
         # Quick start tips
         tips_label = QLabel("Quick Start Tips:")
-        tips_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        tips_label.setStyleSheet("color: #e0e0e0;")
+        tips_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        tips_label.setStyleSheet("color: #ffffff;")
         layout.addWidget(tips_label)
         
         tips = [
@@ -430,16 +444,16 @@ class WelcomeScreen(QWidget):
         
         for tip in tips:
             tip_label = QLabel(tip)
-            tip_label.setFont(QFont("Segoe UI", 11))
-            tip_label.setStyleSheet("color: #888; padding: 5px;")
+            tip_label.setFont(QFont("Segoe UI", 12))
+            tip_label.setStyleSheet("color: #a0a0a0; padding: 6px;")
             layout.addWidget(tip_label)
         
-        layout.addSpacing(20)
+        layout.addSpacing(25)
         
         # Keyboard shortcuts
         shortcuts_label = QLabel("Keyboard Shortcuts:")
-        shortcuts_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        shortcuts_label.setStyleSheet("color: #e0e0e0;")
+        shortcuts_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        shortcuts_label.setStyleSheet("color: #ffffff;")
         layout.addWidget(shortcuts_label)
         
         shortcuts = [
@@ -452,8 +466,8 @@ class WelcomeScreen(QWidget):
         
         for shortcut in shortcuts:
             sc_label = QLabel(shortcut)
-            sc_label.setFont(QFont("Courier New", 10))
-            sc_label.setStyleSheet("color: #888; padding: 3px;")
+            sc_label.setFont(QFont("Courier New", 11))
+            sc_label.setStyleSheet("color: #a0a0a0; padding: 4px;")
             layout.addWidget(sc_label)
         
         self.setLayout(layout)
@@ -488,7 +502,7 @@ class VoiceVisualization(QWidget):
             
             painter.fillRect(
                 int(x), int(y), int(width - 2), int(height),
-                QColor("#10a37f")
+                QColor("#00d9ff")
             )
 
 
@@ -510,8 +524,8 @@ class VolumeSliderPopup(QWidget):
         container = QWidget()
         container.setStyleSheet("""
             QWidget {
-                background-color: #2b2b2b;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                border: 1px solid #2d2d2d;
                 border-radius: 8px;
             }
         """)
@@ -521,7 +535,7 @@ class VolumeSliderPopup(QWidget):
         # Volume label
         self.volume_label = QLabel("100%")
         self.volume_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.volume_label.setStyleSheet("color: #e0e0e0; font-size: 11px; background: transparent; border: none;")
+        self.volume_label.setStyleSheet("color: #ffffff; font-size: 11px; background: transparent; border: none;")
         container_layout.addWidget(self.volume_label)
         
         # Vertical slider
@@ -533,18 +547,18 @@ class VolumeSliderPopup(QWidget):
         self.slider.valueChanged.connect(self.on_slider_change)
         self.slider.setStyleSheet("""
             QSlider::groove:vertical {
-                background: #3d3d3d;
+                background: #2d2d2d;
                 width: 6px;
                 border-radius: 3px;
             }
             QSlider::handle:vertical {
-                background: #10a37f;
+                background: #00d9ff;
                 height: 16px;
                 margin: 0 -5px;
                 border-radius: 8px;
             }
             QSlider::handle:vertical:hover {
-                background: #0d8c6e;
+                background: #00b8d4;
             }
         """)
         container_layout.addWidget(self.slider, 0, Qt.AlignmentFlag.AlignCenter)
@@ -586,7 +600,7 @@ class QuickPromptsDialog(QDialog):
         
         title = QLabel("Quick Prompts")
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title.setStyleSheet("color: #e0e0e0;")
+        title.setStyleSheet("color: #ffffff;")
         layout.addWidget(title)
         
         # Categories with prompts
@@ -640,7 +654,7 @@ class QuickPromptsDialog(QDialog):
             # Category header
             cat_label = QLabel(category)
             cat_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-            cat_label.setStyleSheet("color: #10a37f; padding: 10px 0;")
+            cat_label.setStyleSheet("color: #00d9ff; padding: 10px 0;")
             content_layout.addWidget(cat_label)
             
             # Prompt buttons
@@ -648,16 +662,16 @@ class QuickPromptsDialog(QDialog):
                 btn = QPushButton(prompt)
                 btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #2b2b2b;
-                        color: #e0e0e0;
-                        border: 1px solid #3d3d3d;
+                        background-color: #1a1a1a;
+                        color: #ffffff;
+                        border: 1px solid #2d2d2d;
                         border-radius: 8px;
                         padding: 12px;
                         text-align: left;
                     }
                     QPushButton:hover {
-                        background-color: #3d3d3d;
-                        border-color: #10a37f;
+                        background-color: #2d2d2d;
+                        border-color: #00d9ff;
                     }
                 """)
                 btn.clicked.connect(lambda checked, p=prompt: self._select_prompt(p))
@@ -672,8 +686,8 @@ class QuickPromptsDialog(QDialog):
         close_btn.clicked.connect(self.reject)
         close_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
@@ -685,7 +699,7 @@ class QuickPromptsDialog(QDialog):
         layout.addWidget(close_btn)
         
         self.setLayout(layout)
-        self.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        self.setStyleSheet("QDialog { background-color: #0a0a0a; }")
     
     def _select_prompt(self, prompt: str):
         """Handle prompt selection"""
@@ -715,11 +729,11 @@ class ChatHistoryItem(QWidget):
         
         title_label = QLabel(self.title)
         title_label.setFont(QFont("Segoe UI", 10))
-        title_label.setStyleSheet("color: #e0e0e0;")
+        title_label.setStyleSheet("color: #ffffff;")
         
         time_label = QLabel(self.timestamp)
         time_label.setFont(QFont("Segoe UI", 8))
-        time_label.setStyleSheet("color: #888;")
+        time_label.setStyleSheet("color: #a0a0a0;")
         
         layout.addWidget(title_label)
         layout.addWidget(time_label)
@@ -734,7 +748,7 @@ class ChatHistoryItem(QWidget):
                 padding: 8px;
             }
             ChatHistoryItem:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
     
@@ -752,9 +766,9 @@ class ChatHistoryItem(QWidget):
         menu = QMenu(self)
         menu.setStyleSheet("""
             QMenu {
-                background-color: #2b2b2b;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 5px;
                 padding: 5px;
             }
@@ -763,7 +777,7 @@ class ChatHistoryItem(QWidget):
                 border-radius: 3px;
             }
             QMenu::item:selected {
-                background-color: #10a37f;
+                background-color: #00d9ff;
             }
         """)
         
@@ -826,7 +840,7 @@ class AttachedFileCard(QFrame):
         
         name_label = QLabel(self.filename)
         name_label.setFont(QFont("Segoe UI", 10))
-        name_label.setStyleSheet("color: #e0e0e0; background: transparent;")
+        name_label.setStyleSheet("color: #ffffff; background: transparent;")
         name_label.setMaximumWidth(200)
         name_label.setWordWrap(False)
         # Ellipsis for long names
@@ -835,7 +849,7 @@ class AttachedFileCard(QFrame):
         
         size_label = QLabel(f"{self.file_type.upper()} • {self._format_size(self.size)}")
         size_label.setFont(QFont("Segoe UI", 8))
-        size_label.setStyleSheet("color: #888; background: transparent;")
+        size_label.setStyleSheet("color: #a0a0a0; background: transparent;")
         info_layout.addWidget(size_label)
         
         layout.addLayout(info_layout)
@@ -849,8 +863,8 @@ class AttachedFileCard(QFrame):
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self.filename))
         remove_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 12px;
                 font-size: 12px;
@@ -865,12 +879,12 @@ class AttachedFileCard(QFrame):
         self.setLayout(layout)
         self.setStyleSheet("""
             AttachedFileCard {
-                background-color: #2b2b2b;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                border: 1px solid #2d2d2d;
                 border-radius: 8px;
             }
             AttachedFileCard:hover {
-                border-color: #10a37f;
+                border-color: #00d9ff;
             }
         """)
         self.setMaximumHeight(60)
@@ -894,15 +908,15 @@ class SettingsDialog(QDialog):
         
         title = QLabel("Settings")
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title.setStyleSheet("color: #e0e0e0;")
+        title.setStyleSheet("color: #ffffff;")
         layout.addWidget(title)
         
         # Device Settings
         device_group = QFrame()
         device_group.setStyleSheet("""
             QFrame {
-                background-color: #2b2b2b;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                border: 1px solid #2d2d2d;
                 border-radius: 10px;
                 padding: 15px;
             }
@@ -911,20 +925,20 @@ class SettingsDialog(QDialog):
         
         device_title = QLabel("🖥️ Device Configuration")
         device_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        device_title.setStyleSheet("color: #10a37f;")
+        device_title.setStyleSheet("color: #00d9ff;")
         device_layout.addWidget(device_title)
         
         whisper_layout = QHBoxLayout()
         whisper_label = QLabel("Speech Recognition:")
-        whisper_label.setStyleSheet("color: #e0e0e0;")
+        whisper_label.setStyleSheet("color: #ffffff;")
         whisper_layout.addWidget(whisper_label)
         self.whisper_device = QComboBox()
         self.whisper_device.addItems(["GPU (CUDA)", "CPU"])
         self.whisper_device.setStyleSheet("""
             QComboBox {
-                background-color: #1e1e1e;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #0a0a0a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 5px;
                 padding: 5px;
             }
@@ -934,15 +948,15 @@ class SettingsDialog(QDialog):
         
         llm_layout = QHBoxLayout()
         llm_label = QLabel("AI Brain:")
-        llm_label.setStyleSheet("color: #e0e0e0;")
+        llm_label.setStyleSheet("color: #ffffff;")
         llm_layout.addWidget(llm_label)
         self.llm_device = QComboBox()
         self.llm_device.addItems(["GPU (CUDA)", "CPU"])
         self.llm_device.setStyleSheet("""
             QComboBox {
-                background-color: #1e1e1e;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #0a0a0a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 5px;
                 padding: 5px;
             }
@@ -957,8 +971,8 @@ class SettingsDialog(QDialog):
         voice_group = QFrame()
         voice_group.setStyleSheet("""
             QFrame {
-                background-color: #2b2b2b;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                border: 1px solid #2d2d2d;
                 border-radius: 10px;
                 padding: 15px;
             }
@@ -967,12 +981,12 @@ class SettingsDialog(QDialog):
         
         voice_title = QLabel("🔊 Voice Settings")
         voice_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        voice_title.setStyleSheet("color: #10a37f;")
+        voice_title.setStyleSheet("color: #00d9ff;")
         voice_layout.addWidget(voice_title)
         
         self.voice_default = QCheckBox("Enable voice by default")
         self.voice_default.setChecked(True)
-        self.voice_default.setStyleSheet("color: #e0e0e0;")
+        self.voice_default.setStyleSheet("color: #ffffff;")
         voice_layout.addWidget(self.voice_default)
         
         voice_group.setLayout(voice_layout)
@@ -986,7 +1000,7 @@ class SettingsDialog(QDialog):
         save_btn.clicked.connect(self.accept)
         save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #10a37f;
+                background-color: #00d9ff;
                 color: white;
                 border: none;
                 border-radius: 5px;
@@ -994,7 +1008,7 @@ class SettingsDialog(QDialog):
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #0d8c6e;
+                background-color: #00b8d4;
             }
         """)
         
@@ -1002,8 +1016,8 @@ class SettingsDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
@@ -1020,7 +1034,7 @@ class SettingsDialog(QDialog):
         layout.addLayout(btn_layout)
         
         self.setLayout(layout)
-        self.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        self.setStyleSheet("QDialog { background-color: #0a0a0a; }")
 
 
 class SmartAssistantWindow(QMainWindow):
@@ -1059,7 +1073,7 @@ class SmartAssistantWindow(QMainWindow):
         self.load_chat_history()
         
         # Update status
-        self.update_status("Ready", "#888")
+        self.update_status("Ready", "#a0a0a0")
     
     def init_components(self):
         """Initialize AI components"""
@@ -1119,7 +1133,7 @@ class SmartAssistantWindow(QMainWindow):
         # Status bar
         self.status_label = QLabel("Ready")
         self.status_label.setFont(QFont("Segoe UI", 9))
-        self.status_label.setStyleSheet("padding: 5px 15px; color: #888; background-color: #1e1e1e;")
+        self.status_label.setStyleSheet("padding: 5px 15px; color: #a0a0a0; background-color: #0a0a0a;")
         chat_layout.addWidget(self.status_label)
         
         chat_widget.setLayout(chat_layout)
@@ -1134,7 +1148,7 @@ class SmartAssistantWindow(QMainWindow):
         """Create input area with buttons"""
         input_widget = QWidget()
         input_widget.setMaximumHeight(180)  # Increased for file cards
-        input_widget.setStyleSheet("background-color: #1e1e1e; border-top: 1px solid #3d3d3d;")
+        input_widget.setStyleSheet("background-color: #0a0a0a; border-top: 1px solid #2d2d2d;")
         
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -1148,7 +1162,7 @@ class SmartAssistantWindow(QMainWindow):
         self.files_scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
-                background-color: #1e1e1e;
+                background-color: #0a0a0a;
             }
         """)
         
@@ -1175,7 +1189,7 @@ class SmartAssistantWindow(QMainWindow):
         self.hamburger_btn.setFixedSize(35, 35)
         self.hamburger_btn.setToolTip("Show Sidebar")
         self.hamburger_btn.clicked.connect(self.toggle_sidebar)
-        self.hamburger_btn.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        self.hamburger_btn.setStyleSheet("""QPushButton { background: transparent; color: #ffffff; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #1a1a1a; }""")
         self.sidebar_ham_layout.addWidget(self.hamburger_btn)
         self.sidebar_ham_layout.addStretch()
         self.sidebar_ham_widget.setLayout(self.sidebar_ham_layout)
@@ -1187,7 +1201,7 @@ class SmartAssistantWindow(QMainWindow):
         attach_btn.setFixedSize(35, 35)
         attach_btn.setToolTip("Attach Document")
         attach_btn.clicked.connect(self.attach_document)
-        attach_btn.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        attach_btn.setStyleSheet("""QPushButton { background: transparent; color: #ffffff; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #1a1a1a; }""")
         layout.addWidget(attach_btn)
         
         # Text input
@@ -1196,15 +1210,15 @@ class SmartAssistantWindow(QMainWindow):
         self.text_input.setFont(QFont("Segoe UI", 10))
         self.text_input.setStyleSheet("""
             QTextEdit {
-                background-color: #2b2b2b;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 8px;
                 padding: 8px;
-                selection-background-color: #10a37f;
+                selection-background-color: #00d9ff;
             }
             QTextEdit:focus {
-                border: 1px solid #10a37f;
+                border: 1px solid #00d9ff;
             }
         """)
         self.text_input.textChanged.connect(self.update_send_button_state)
@@ -1216,7 +1230,7 @@ class SmartAssistantWindow(QMainWindow):
         self.send_button.setFixedSize(35, 35)
         self.send_button.setToolTip("Send Message")
         self.send_button.clicked.connect(self.send_message)
-        self.send_button.setStyleSheet("""QPushButton { background-color: #10a37f; color: white; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #0d8c6e; } QPushButton:disabled { background-color: #3d3d3d; color: #888; }""")
+        self.send_button.setStyleSheet("""QPushButton { background-color: #00d9ff; color: white; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #00b8d4; } QPushButton:disabled { background-color: #2d2d2d; color: #a0a0a0; }""")
         self.send_button.setEnabled(False) # Disabled by default
         layout.addWidget(self.send_button)
         
@@ -1225,7 +1239,7 @@ class SmartAssistantWindow(QMainWindow):
         self.voice_input_button.setFixedSize(35, 35)
         self.voice_input_button.setToolTip("Voice Input")
         self.voice_input_button.clicked.connect(self.toggle_voice_input)
-        self.voice_input_button.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        self.voice_input_button.setStyleSheet("""QPushButton { background: transparent; color: #ffffff; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #1a1a1a; }""")
         layout.addWidget(self.voice_input_button)
         
         main_layout.addLayout(layout)
@@ -1236,7 +1250,7 @@ class SmartAssistantWindow(QMainWindow):
         """Create sidebar with chat history and settings"""
         sidebar = QWidget()
         sidebar.setFixedWidth(280)
-        sidebar.setStyleSheet("background-color: #1e1e1e; border-right: 1px solid #3d3d3d;")
+        sidebar.setStyleSheet("background-color: #0a0a0a; border-right: 1px solid #2d2d2d;")
         
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1250,7 +1264,7 @@ class SmartAssistantWindow(QMainWindow):
         self.hamburger_btn.setFixedSize(35, 35)
         self.hamburger_btn.setToolTip("Hide Sidebar")
         self.hamburger_btn.clicked.connect(self.toggle_sidebar)
-        self.hamburger_btn.setStyleSheet("""QPushButton { background: transparent; color: #e0e0e0; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #2b2b2b; }""")
+        self.hamburger_btn.setStyleSheet("""QPushButton { background: transparent; color: #ffffff; border: none; border-radius: 8px; font-size: 18px; } QPushButton:hover { background-color: #1a1a1a; }""")
         self.sidebar_ham_layout.addWidget(self.hamburger_btn)
         self.sidebar_ham_layout.addStretch()
         self.sidebar_ham_widget.setLayout(self.sidebar_ham_layout)
@@ -1262,7 +1276,7 @@ class SmartAssistantWindow(QMainWindow):
         new_chat_btn.clicked.connect(self.new_chat)
         new_chat_btn.setStyleSheet("""
             QPushButton {
-                background-color: #10a37f;
+                background-color: #00d9ff;
                 color: white;
                 border: none;
                 border-radius: 8px;
@@ -1271,7 +1285,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #0d8c6e;
+                background-color: #00b8d4;
             }
         """)
         layout.addWidget(new_chat_btn)
@@ -1279,7 +1293,7 @@ class SmartAssistantWindow(QMainWindow):
         # Chat history label
         history_label = QLabel("Chat History")
         history_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        history_label.setStyleSheet("color: #888; padding: 10px 15px;")
+        history_label.setStyleSheet("color: #a0a0a0; padding: 10px 15px;")
         layout.addWidget(history_label)
         
         # Chat history list
@@ -1292,20 +1306,20 @@ class SmartAssistantWindow(QMainWindow):
                 background-color: transparent;
             }
             QScrollBar:vertical {
-                background-color: #1e1e1e;
+                background-color: #0a0a0a;
                 width: 8px;
                 border-radius: 4px;
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #3d3d3d, stop:1 #4d4d4d);
+                    stop:0 #2d2d2d, stop:1 #4d4d4d);
                 border-radius: 4px;
                 min-height: 20px;
             }
             QScrollBar::handle:vertical:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #10a37f, stop:1 #0d8c6e);
+                    stop:0 #00d9ff, stop:1 #00b8d4);
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -1325,7 +1339,7 @@ class SmartAssistantWindow(QMainWindow):
         # Settings section
         settings_label = QLabel("Settings")
         settings_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        settings_label.setStyleSheet("color: #888; padding: 10px 15px; border-top: 1px solid #3d3d3d;")
+        settings_label.setStyleSheet("color: #a0a0a0; padding: 10px 15px; border-top: 1px solid #2d2d2d;")
         layout.addWidget(settings_label)
         
         # Settings button
@@ -1335,7 +1349,7 @@ class SmartAssistantWindow(QMainWindow):
         settings_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 15px;
@@ -1343,7 +1357,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
         layout.addWidget(settings_btn)
@@ -1355,7 +1369,7 @@ class SmartAssistantWindow(QMainWindow):
         prompts_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 15px;
@@ -1363,7 +1377,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
         layout.addWidget(prompts_btn)
@@ -1375,7 +1389,7 @@ class SmartAssistantWindow(QMainWindow):
         voice_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 15px;
@@ -1383,7 +1397,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
         layout.addWidget(voice_btn)
@@ -1395,7 +1409,7 @@ class SmartAssistantWindow(QMainWindow):
         search_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 15px;
@@ -1403,7 +1417,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
         layout.addWidget(search_btn)
@@ -1415,7 +1429,7 @@ class SmartAssistantWindow(QMainWindow):
         stats_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 15px;
@@ -1423,7 +1437,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
         layout.addWidget(stats_btn)
@@ -1435,7 +1449,7 @@ class SmartAssistantWindow(QMainWindow):
         export_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 15px;
@@ -1443,7 +1457,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
         layout.addWidget(export_btn)
@@ -1455,7 +1469,7 @@ class SmartAssistantWindow(QMainWindow):
         clear_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #e0e0e0;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 15px;
@@ -1463,7 +1477,7 @@ class SmartAssistantWindow(QMainWindow):
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #2b2b2b;
+                background-color: #1a1a1a;
             }
         """)
         layout.addWidget(clear_btn)
@@ -1474,7 +1488,7 @@ class SmartAssistantWindow(QMainWindow):
     def create_header(self):
         """Create header"""
         header = QWidget()
-        header.setStyleSheet("background-color: #1e1e1e; border-bottom: 1px solid #3d3d3d;")
+        header.setStyleSheet("background-color: #0a0a0a; border-bottom: 1px solid #2d2d2d;")
         header.setFixedHeight(60)
         
         self.header_layout = QHBoxLayout()
@@ -1482,7 +1496,7 @@ class SmartAssistantWindow(QMainWindow):
         
         title = QLabel("Smart Assistant")
         title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        title.setStyleSheet("color: #10a37f;")
+        title.setStyleSheet("color: #00d9ff;")
         self.header_layout.addWidget(title)
         self.header_layout.addStretch()
         
@@ -1497,17 +1511,17 @@ class SmartAssistantWindow(QMainWindow):
         scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
-                background-color: #1e1e1e;
+                background-color: #0a0a0a;
             }
             QScrollBar:vertical {
-                background-color: #1e1e1e;
+                background-color: #0a0a0a;
                 width: 10px;
                 border-radius: 5px;
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #3d3d3d, stop:1 #4d4d4d);
+                    stop:0 #2d2d2d, stop:1 #4d4d4d);
                 border-radius: 5px;
                 min-height: 30px;
             }
@@ -1535,7 +1549,7 @@ class SmartAssistantWindow(QMainWindow):
         self.chat_layout.addStretch()
         
         self.chat_container.setLayout(self.chat_layout)
-        self.chat_container.setStyleSheet("background-color: #1e1e1e;")
+        self.chat_container.setStyleSheet("background-color: #0a0a0a;")
         scroll.setWidget(self.chat_container)
         
         return scroll
@@ -1543,7 +1557,7 @@ class SmartAssistantWindow(QMainWindow):
     def create_input_area(self):
         """Create input area"""
         input_widget = QWidget()
-        input_widget.setStyleSheet("background-color: #1e1e1e; border-top: 1px solid #3d3d3d;")
+        input_widget.setStyleSheet("background-color: #0a0a0a; border-top: 1px solid #2d2d2d;")
         input_widget.setFixedHeight(80)
         
         layout = QHBoxLayout()
@@ -1578,20 +1592,20 @@ class SmartAssistantWindow(QMainWindow):
         self.audio_toggle_btn.clicked.connect(self.toggle_audio)
         self.audio_toggle_btn.setStyleSheet("""
             QPushButton {
-                background-color: #10a37f;
+                background-color: #00d9ff;
                 color: white;
                 border: none;
                 border-radius: 25px;
                 font-size: 18px;
             }
             QPushButton:checked {
-                background-color: #10a37f;
+                background-color: #00d9ff;
             }
             QPushButton:!checked {
-                background-color: #3d3d3d;
+                background-color: #2d2d2d;
             }
             QPushButton:hover {
-                background-color: #0d8c6e;
+                background-color: #00b8d4;
             }
         """)
         
@@ -1615,18 +1629,18 @@ class SmartAssistantWindow(QMainWindow):
         self.input_box.returnPressed.connect(self.send_message)
         self.input_box.setStyleSheet("""
             QLineEdit {
-                background-color: #2b2b2b;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 25px;
                 padding: 12px 20px;
             }
             QLineEdit:focus {
-                border: 2px solid #10a37f;
-                background-color: #2b2b2b;
+                border: 2px solid #00d9ff;
+                background-color: #1a1a1a;
             }
             QLineEdit::placeholder {
-                color: #888;
+                color: #a0a0a0;
             }
         """)
         layout.addWidget(self.input_box, 1)
@@ -1638,7 +1652,7 @@ class SmartAssistantWindow(QMainWindow):
         self.mic_btn.clicked.connect(self.start_voice_input)
         self.mic_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
+                background-color: #2d2d2d;
                 color: white;
                 border: none;
                 border-radius: 25px;
@@ -1657,7 +1671,7 @@ class SmartAssistantWindow(QMainWindow):
         self.attach_btn.clicked.connect(self.show_file_picker)
         self.attach_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
+                background-color: #2d2d2d;
                 color: white;
                 border: none;
                 border-radius: 25px;
@@ -1676,14 +1690,14 @@ class SmartAssistantWindow(QMainWindow):
         self.send_btn.clicked.connect(self.send_message)
         self.send_btn.setStyleSheet("""
             QPushButton {
-                background-color: #10a37f;
+                background-color: #00d9ff;
                 color: white;
                 border: none;
                 border-radius: 25px;
                 font-size: 18px;
             }
             QPushButton:hover {
-                background-color: #0d8c6e;
+                background-color: #00b8d4;
             }
         """)
         layout.addWidget(self.send_btn)
@@ -1695,11 +1709,11 @@ class SmartAssistantWindow(QMainWindow):
         """Apply modern dark theme"""
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #1e1e1e;
+                background-color: #0a0a0a;
             }
             QWidget {
-                background-color: #1e1e1e;
-                color: #e0e0e0;
+                background-color: #0a0a0a;
+                color: #ffffff;
             }
         """)
     
@@ -1767,7 +1781,7 @@ class SmartAssistantWindow(QMainWindow):
                 self.brain.conversation_history = messages.copy()
             
             self.current_conversation_id = conv_id
-            self.update_status("Conversation loaded", "#10a37f")
+            self.update_status("Conversation loaded", "#00d9ff")
             
             # Reset flag after loading
             self.loading_conversation = False
@@ -1924,7 +1938,7 @@ class SmartAssistantWindow(QMainWindow):
             
             # Update status
             print("📊 Updating status bar")
-            self.update_status("🔊 Playing message...", "#10a37f")
+            self.update_status("🔊 Playing message...", "#00d9ff")
             
             # Create background thread for speaking
             print("🧵 Creating speak thread...")
@@ -1963,7 +1977,7 @@ class SmartAssistantWindow(QMainWindow):
         """Called when speaking finishes"""
         print(f"\n🏁 on_speak_finished called for bubble")
         bubble.set_playing(False)
-        self.update_status("Ready", "#888")
+        self.update_status("Ready", "#a0a0a0")
         print("✅ Audio playback finished naturally\n")
     
     
@@ -1975,7 +1989,7 @@ class SmartAssistantWindow(QMainWindow):
         
         # Update UI status
         print("🎯 Updating status to 'Stopped'")
-        self.update_status("Stopped", "#888")
+        self.update_status("Stopped", "#a0a0a0")
         
         # Reset playing bubble
         if hasattr(self, 'currently_playing_bubble') and self.currently_playing_bubble:
@@ -2032,7 +2046,7 @@ class SmartAssistantWindow(QMainWindow):
         self.send_btn.setEnabled(True)
         self.input_box.setEnabled(True)
         
-        self.update_status("Stopped", "#888")
+        self.update_status("Stopped", "#a0a0a0")
     
     def show_file_picker(self):
         """Show file picker for document upload"""
@@ -2085,7 +2099,7 @@ class SmartAssistantWindow(QMainWindow):
             if count > 0:
                 self.attach_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #10a37f;
+                        background-color: #00d9ff;
                         color: white;
                         border: none;
                         border-radius: 25px;
@@ -2093,11 +2107,11 @@ class SmartAssistantWindow(QMainWindow):
                         font-weight: bold;
                     }
                     QPushButton:hover {
-                        background-color: #0d8c6e;
+                        background-color: #00b8d4;
                     }
                 """)
             
-            self.update_status(f"Attached {filename} ({file_type}) - Ready for questions!", "#10a37f")
+            self.update_status(f"Attached {filename} ({file_type}) - Ready for questions!", "#00d9ff")
             
         except Exception as e:
             QMessageBox.warning(self, "Attachment Error", f"Could not attach file:\n{str(e)}")
@@ -2123,7 +2137,7 @@ class SmartAssistantWindow(QMainWindow):
             self.attach_btn.setText("📎")
             self.attach_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #3d3d3d;
+                    background-color: #2d2d2d;
                     color: white;
                     border: none;
                     border-radius: 25px;
@@ -2139,7 +2153,7 @@ class SmartAssistantWindow(QMainWindow):
         else:
             self.attach_btn.setText(f"📎{count}")
         
-        self.update_status(f"Removed {filename}", "#888")
+        self.update_status(f"Removed {filename}", "#a0a0a0")
     
     def send_message(self):
         """Send text message"""
@@ -2217,7 +2231,7 @@ class SmartAssistantWindow(QMainWindow):
     def update_status(self, text: str, color: str):
         """Update status label"""
         self.status_label.setText(text)
-        self.status_label.setStyleSheet(f"padding: 5px 15px; color: {color}; background-color: #1e1e1e;")
+        self.status_label.setStyleSheet(f"padding: 5px 15px; color: {color}; background-color: #0a0a0a;")
     
     def show_error(self, message: str):
         """Show error message"""
@@ -2241,7 +2255,7 @@ class SmartAssistantWindow(QMainWindow):
         # Now clear and start fresh
         self.clear_current_chat()
         self.current_conversation_id = None
-        self.update_status("New chat started", "#10a37f")
+        self.update_status("New chat started", "#00d9ff")
     
     def clear_current_chat(self):
         """Clear current chat display"""
@@ -2276,7 +2290,7 @@ class SmartAssistantWindow(QMainWindow):
                 
                 self.memory._write_data(data)
                 self.load_chat_history()
-                self.update_status(f"Renamed to: {new_title}", "#10a37f")
+                self.update_status(f"Renamed to: {new_title}", "#00d9ff")
             except Exception as e:
                 self.show_error(f"Failed to rename: {str(e)}")
     
@@ -2301,7 +2315,7 @@ class SmartAssistantWindow(QMainWindow):
                 
                 # Reload chat history
                 self.load_chat_history()
-                self.update_status("Conversation deleted", "#10a37f")
+                self.update_status("Conversation deleted", "#00d9ff")
             except Exception as e:
                 self.show_error(f"Failed to delete: {str(e)}")
     
@@ -2317,7 +2331,7 @@ class SmartAssistantWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self.clear_current_chat()
             self.load_chat_history()
-            self.update_status("All chats cleared", "#888")
+            self.update_status("All chats cleared", "#a0a0a0")
     
     def setup_shortcuts(self):
         """Setup keyboard shortcuts"""
@@ -2361,16 +2375,16 @@ class SmartAssistantWindow(QMainWindow):
         
         label = QLabel("Select export format:")
         label.setFont(QFont("Segoe UI", 11))
-        label.setStyleSheet("color: #e0e0e0;")
+        label.setStyleSheet("color: #ffffff;")
         layout.addWidget(label)
         
         format_combo = QComboBox()
         format_combo.addItems(["Text (.txt)", "Markdown (.md)", "JSON (.json)"])
         format_combo.setStyleSheet("""
             QComboBox {
-                background-color: #2b2b2b;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 5px;
                 padding: 8px;
             }
@@ -2381,21 +2395,21 @@ class SmartAssistantWindow(QMainWindow):
         export_btn = QPushButton("Export")
         export_btn.setStyleSheet("""
             QPushButton {
-                background-color: #10a37f;
+                background-color: #00d9ff;
                 color: white;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
             }
             QPushButton:hover {
-                background-color: #0d8c6e;
+                background-color: #00b8d4;
             }
         """)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
@@ -2407,7 +2421,7 @@ class SmartAssistantWindow(QMainWindow):
         layout.addLayout(btn_layout)
         
         format_dialog.setLayout(layout)
-        format_dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        format_dialog.setStyleSheet("QDialog { background-color: #0a0a0a; }")
         
         export_btn.clicked.connect(format_dialog.accept)
         cancel_btn.clicked.connect(format_dialog.reject)
@@ -2432,7 +2446,7 @@ class SmartAssistantWindow(QMainWindow):
                 try:
                     self._export_to_file(filename, format_type)
                     QMessageBox.information(self, "Export", f"Conversation exported to:\n{filename}")
-                    self.update_status("Conversation exported", "#10a37f")
+                    self.update_status("Conversation exported", "#00d9ff")
                 except Exception as e:
                     QMessageBox.critical(self, "Export Error", f"Failed to export:\n{str(e)}")
     
@@ -2523,24 +2537,24 @@ class SmartAssistantWindow(QMainWindow):
         
         label = QLabel(f"Found {len(results)} result(s)")
         label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        label.setStyleSheet("color: #e0e0e0;")
+        label.setStyleSheet("color: #ffffff;")
         layout.addWidget(label)
         
         # Results list
         results_list = QListWidget()
         results_list.setStyleSheet("""
             QListWidget {
-                background-color: #2b2b2b;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 5px;
             }
             QListWidget::item {
                 padding: 10px;
-                border-bottom: 1px solid #3d3d3d;
+                border-bottom: 1px solid #2d2d2d;
             }
             QListWidget::item:hover {
-                background-color: #3d3d3d;
+                background-color: #2d2d2d;
             }
         """)
         
@@ -2560,8 +2574,8 @@ class SmartAssistantWindow(QMainWindow):
         close_btn.clicked.connect(dialog.reject)
         close_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
@@ -2570,7 +2584,7 @@ class SmartAssistantWindow(QMainWindow):
         layout.addWidget(close_btn)
         
         dialog.setLayout(layout)
-        dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        dialog.setStyleSheet("QDialog { background-color: #0a0a0a; }")
         dialog.exec()
     
     def _load_search_result(self, item, dialog):
@@ -2602,7 +2616,7 @@ class SmartAssistantWindow(QMainWindow):
         
         title = QLabel("Select Voice")
         title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        title.setStyleSheet("color: #e0e0e0;")
+        title.setStyleSheet("color: #ffffff;")
         layout.addWidget(title)
         
         # Get available voices
@@ -2612,20 +2626,20 @@ class SmartAssistantWindow(QMainWindow):
         voice_list = QListWidget()
         voice_list.setStyleSheet("""
             QListWidget {
-                background-color: #2b2b2b;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+                background-color: #1a1a1a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
                 border-radius: 5px;
             }
             QListWidget::item {
                 padding: 12px;
-                border-bottom: 1px solid #3d3d3d;
+                border-bottom: 1px solid #2d2d2d;
             }
             QListWidget::item:hover {
-                background-color: #3d3d3d;
+                background-color: #2d2d2d;
             }
             QListWidget::item:selected {
-                background-color: #10a37f;
+                background-color: #00d9ff;
             }
         """)
         
@@ -2639,7 +2653,7 @@ class SmartAssistantWindow(QMainWindow):
         # Voice speed
         speed_layout = QHBoxLayout()
         speed_label = QLabel("Speed:")
-        speed_label.setStyleSheet("color: #e0e0e0;")
+        speed_label.setStyleSheet("color: #ffffff;")
         speed_layout.addWidget(speed_label)
         
         speed_slider = QSlider(Qt.Orientation.Horizontal)
@@ -2648,12 +2662,12 @@ class SmartAssistantWindow(QMainWindow):
         speed_slider.setValue(150)
         speed_slider.setStyleSheet("""
             QSlider::groove:horizontal {
-                background: #3d3d3d;
+                background: #2d2d2d;
                 height: 8px;
                 border-radius: 4px;
             }
             QSlider::handle:horizontal {
-                background: #10a37f;
+                background: #00d9ff;
                 width: 18px;
                 margin: -5px 0;
                 border-radius: 9px;
@@ -2662,7 +2676,7 @@ class SmartAssistantWindow(QMainWindow):
         speed_layout.addWidget(speed_slider)
         
         speed_value = QLabel("150 WPM")
-        speed_value.setStyleSheet("color: #888;")
+        speed_value.setStyleSheet("color: #a0a0a0;")
         speed_layout.addWidget(speed_value)
         
         speed_slider.valueChanged.connect(
@@ -2677,8 +2691,8 @@ class SmartAssistantWindow(QMainWindow):
         test_btn = QPushButton("Test Voice")
         test_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
@@ -2694,14 +2708,14 @@ class SmartAssistantWindow(QMainWindow):
         apply_btn = QPushButton("Apply")
         apply_btn.setStyleSheet("""
             QPushButton {
-                background-color: #10a37f;
+                background-color: #00d9ff;
                 color: white;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
             }
             QPushButton:hover {
-                background-color: #0d8c6e;
+                background-color: #00b8d4;
             }
         """)
         apply_btn.clicked.connect(
@@ -2712,8 +2726,8 @@ class SmartAssistantWindow(QMainWindow):
         cancel_btn.clicked.connect(dialog.reject)
         cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
@@ -2727,7 +2741,7 @@ class SmartAssistantWindow(QMainWindow):
         layout.addLayout(btn_layout)
         
         dialog.setLayout(layout)
-        dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        dialog.setStyleSheet("QDialog { background-color: #0a0a0a; }")
         dialog.exec()
     
     def _test_voice(self, item):
@@ -2758,7 +2772,7 @@ class SmartAssistantWindow(QMainWindow):
         
         title = QLabel("📊 Statistics Dashboard")
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title.setStyleSheet("color: #10a37f;")
+        title.setStyleSheet("color: #00d9ff;")
         layout.addWidget(title)
         
         # Calculate statistics
@@ -2776,11 +2790,11 @@ class SmartAssistantWindow(QMainWindow):
         for i, (label, value) in enumerate(stats):
             label_widget = QLabel(label)
             label_widget.setFont(QFont("Segoe UI", 11))
-            label_widget.setStyleSheet("color: #e0e0e0;")
+            label_widget.setStyleSheet("color: #ffffff;")
             
             value_widget = QLabel(value)
             value_widget.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-            value_widget.setStyleSheet("color: #10a37f;")
+            value_widget.setStyleSheet("color: #00d9ff;")
             
             stats_layout.addWidget(label_widget, i, 0)
             stats_layout.addWidget(value_widget, i, 1)
@@ -2792,8 +2806,8 @@ class SmartAssistantWindow(QMainWindow):
         close_btn.clicked.connect(dialog.reject)
         close_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
+                background-color: #2d2d2d;
+                color: #ffffff;
                 border: none;
                 border-radius: 5px;
                 padding: 10px 20px;
@@ -2802,7 +2816,7 @@ class SmartAssistantWindow(QMainWindow):
         layout.addWidget(close_btn)
         
         dialog.setLayout(layout)
-        dialog.setStyleSheet("QDialog { background-color: #1e1e1e; }")
+        dialog.setStyleSheet("QDialog { background-color: #0a0a0a; }")
         dialog.exec()
     
     def closeEvent(self, event):
@@ -2838,3 +2852,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -44,62 +44,62 @@ class Theme:
     info: str
 
 
-# Dark Theme (Current)
+# Dark Theme - Modern & Vibrant
 DARK_THEME = Theme(
     name="Dark",
-    background="#1e1e1e",
-    surface="#2b2b2b",
-    primary="#10a37f",
-    primary_hover="#0d8c6e",
-    secondary="#3d3d3d",
+    background="#0a0a0a",  # Deeper black
+    surface="#1a1a1a",     # Richer dark gray
+    primary="#00d9ff",     # Vibrant cyan
+    primary_hover="#00b8d4",
+    secondary="#2d2d2d",
     
-    text_primary="#e0e0e0",
-    text_secondary="#888",
-    text_disabled="#555",
+    text_primary="#ffffff",     # Pure white for better contrast
+    text_secondary="#a0a0a0",   # Lighter secondary text
+    text_disabled="#666666",
     
-    border="#3d3d3d",
-    input_bg="#2b2b2b",
-    input_border="#3d3d3d",
-    input_focus_border="#10a37f",
+    border="#2d2d2d",
+    input_bg="#1a1a1a",
+    input_border="#2d2d2d",
+    input_focus_border="#00d9ff",
     
-    user_bubble_bg="qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #10a37f, stop:1 #0d8c6e)",
+    user_bubble_bg="qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d9ff, stop:1 #10a37f)",
     user_bubble_text="#ffffff",
-    ai_bubble_bg="#2b2b2b",
-    ai_bubble_text="#e0e0e0",
+    ai_bubble_bg="#1a1a1a",
+    ai_bubble_text="#ffffff",
     
-    success="#10a37f",
-    error="#e74c3c",
-    warning="#f39c12",
-    info="#3498db"
+    success="#00d9ff",
+    error="#ff6b6b",
+    warning="#ffd93d",
+    info="#6c63ff"
 )
 
-# Light Theme
+# Light Theme - Modern & Clean
 LIGHT_THEME = Theme(
     name="Light",
-    background="#ffffff",
-    surface="#f5f5f5",
-    primary="#10a37f",
-    primary_hover="#0d8c6e",
-    secondary="#e0e0e0",
+    background="#fafafa",
+    surface="#ffffff",
+    primary="#00d9ff",
+    primary_hover="#00b8d4",
+    secondary="#f0f0f0",
     
-    text_primary="#2b2b2b",
+    text_primary="#1a1a1a",
     text_secondary="#666666",
     text_disabled="#cccccc",
     
-    border="#d0d0d0",
+    border="#e0e0e0",
     input_bg="#ffffff",
-    input_border="#d0d0d0",
-    input_focus_border="#10a37f",
+    input_border="#e0e0e0",
+    input_focus_border="#00d9ff",
     
-    user_bubble_bg="qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #10a37f, stop:1 #0d8c6e)",
+    user_bubble_bg="qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d9ff, stop:1 #10a37f)",
     user_bubble_text="#ffffff",
-    ai_bubble_bg="#f5f5f5",
-    ai_bubble_text="#2b2b2b",
+    ai_bubble_bg="#ffffff",
+    ai_bubble_text="#1a1a1a",
     
-    success="#10a37f",
-    error="#e74c3c",
-    warning="#f39c12",
-    info="#3498db"
+    success="#00d9ff",
+    error="#ff6b6b",
+    warning="#ffd93d",
+    info="#6c63ff"
 )
 
 # High Contrast Theme
@@ -131,33 +131,33 @@ HIGH_CONTRAST_THEME = Theme(
     info="#00ffff"
 )
 
-# Midnight Blue Theme
+# Midnight Blue Theme - Enhanced
 MIDNIGHT_THEME = Theme(
     name="Midnight Blue",
-    background="#0f1419",
-    surface="#1a1f2e",
-    primary="#4a9eff",
-    primary_hover="#3a8eef",
-    secondary="#2d3748",
+    background="#0d1117",
+    surface="#161b22",
+    primary="#58a6ff",
+    primary_hover="#4d96e6",
+    secondary="#21262d",
     
-    text_primary="#e2e8f0",
-    text_secondary="#94a3b8",
-    text_disabled="#64748b",
+    text_primary="#f0f6fc",
+    text_secondary="#8b949e",
+    text_disabled="#484f58",
     
-    border="#2d3748",
-    input_bg="#1a1f2e",
-    input_border="#2d3748",
-    input_focus_border="#4a9eff",
+    border="#30363d",
+    input_bg="#161b22",
+    input_border="#30363d",
+    input_focus_border="#58a6ff",
     
-    user_bubble_bg="qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4a9eff, stop:1 #3a8eef)",
+    user_bubble_bg="qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #58a6ff, stop:1 #3b8fd9)",
     user_bubble_text="#ffffff",
-    ai_bubble_bg="#1a1f2e",
-    ai_bubble_text="#e2e8f0",
+    ai_bubble_bg="#161b22",
+    ai_bubble_text="#f0f6fc",
     
-    success="#10b981",
-    error="#ef4444",
-    warning="#f59e0b",
-    info="#3b82f6"
+    success="#56d364",
+    error="#f85149",
+    warning="#d29922",
+    info="#58a6ff"
 )
 
 
@@ -287,6 +287,19 @@ class ThemeManager:
             """
         
         return ""
+    
+    def get_common_styles(self) -> dict:
+        """Get common CSS styles for consistent design"""
+        return {
+            "shadow_sm": "box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);",
+            "shadow_md": "box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);",
+            "shadow_lg": "box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);",
+            "transition_fast": "transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);",
+            "transition_base": "transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);",
+            "transition_slow": "transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);",
+            "hover_scale": "transform: scale(1.05);",
+            "hover_scale_sm": "transform: scale(1.02);",
+        }
 
 
 # Global theme manager instance
