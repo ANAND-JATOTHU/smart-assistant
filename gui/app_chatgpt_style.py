@@ -898,8 +898,9 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Smart Assistant Settings")
         self.setModal(True)
         self.setMinimumWidth(500)
-        self.setMinimumHeight(400)
+        self.setMinimumHeight(500)
         self._setup_ui()
+        self._load_current_settings()
     
     def _setup_ui(self):
         """Setup settings UI"""
@@ -966,6 +967,59 @@ class SettingsDialog(QDialog):
         
         device_group.setLayout(device_layout)
         layout.addWidget(device_group)
+        
+        # Appearance Settings
+        appearance_group = QFrame()
+        appearance_group.setStyleSheet("""
+            QFrame {
+                background-color: #1a1a1a;
+                border: 1px solid #2d2d2d;
+                border-radius: 10px;
+                padding: 15px;
+            }
+        """)
+        appearance_layout = QVBoxLayout()
+        
+        appearance_title = QLabel("🎨 Appearance")
+        appearance_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        appearance_title.setStyleSheet("color: #00d9ff;")
+        appearance_layout.addWidget(appearance_title)
+        
+        theme_layout = QHBoxLayout()
+        theme_label = QLabel("Theme:")
+        theme_label.setStyleSheet("color: #ffffff;")
+        theme_layout.addWidget(theme_label)
+        self.theme_selector = QComboBox()
+        self.theme_selector.addItems(["Dark", "Light", "Midnight Blue", "High Contrast"])
+        self.theme_selector.setStyleSheet("""
+            QComboBox {
+                background-color: #0a0a0a;
+                color: #ffffff;
+                border: 1px solid #2d2d2d;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid #ffffff;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1a1a1a;
+                color: #ffffff;
+                selection-background-color: #00d9ff;
+                border: 1px solid #2d2d2d;
+            }
+        """)
+        theme_layout.addWidget(self.theme_selector)
+        appearance_layout.addLayout(theme_layout)
+        
+        appearance_group.setLayout(appearance_layout)
+        layout.addWidget(appearance_group)
         
         # Voice Settings
         voice_group = QFrame()
@@ -1035,6 +1089,40 @@ class SettingsDialog(QDialog):
         
         self.setLayout(layout)
         self.setStyleSheet("QDialog { background-color: #0a0a0a; }")
+    
+    def _load_current_settings(self):
+        """Load current settings from user config"""
+        from utils.config import load_user_settings
+        settings = load_user_settings()
+        
+        # Map theme names
+        theme_map = {
+            "dark": "Dark",
+            "light": "Light",
+            "midnight": "Midnight Blue",
+            "high_contrast": "High Contrast"
+        }
+        
+        theme_display = theme_map.get(settings.get('theme', 'dark'), "Dark")
+        index = self.theme_selector.findText(theme_display)
+        if index >= 0:
+            self.theme_selector.setCurrentIndex(index)
+    
+    def get_settings(self):
+        """Get settings from dialog"""
+        # Map display names to internal names
+        theme_map = {
+            "Dark": "dark",
+            "Light": "light",
+            "Midnight Blue": "midnight",
+            "High Contrast": "high_contrast"
+        }
+        
+        selected_theme = self.theme_selector.currentText()
+        
+        return {
+            'theme': theme_map.get(selected_theme, 'dark')
+        }
 
 
 class SmartAssistantWindow(QMainWindow):
@@ -1707,15 +1795,46 @@ class SmartAssistantWindow(QMainWindow):
     
     def apply_dark_theme(self):
         """Apply modern dark theme"""
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #0a0a0a;
-            }
-            QWidget {
-                background-color: #0a0a0a;
-                color: #ffffff;
-            }
-        """)
+        # Load theme from user settings and apply
+        from utils.config import get_user_setting
+        theme_name = get_user_setting('theme', 'dark')
+        self.apply_theme(theme_name)
+    
+    def apply_theme(self, theme_name: str):
+        """Apply theme by name"""
+        # Map display names to internal theme names
+        theme_map = {
+            "Dark": "dark",
+            "Light": "light",
+            "Midnight Blue": "midnight",
+            "High Contrast": "high_contrast"
+        }
+        
+        # Convert if needed
+        internal_name = theme_map.get(theme_name, theme_name.lower().replace(" ", "_"))
+        
+        # Set theme in manager
+        if theme_manager.set_theme(internal_name):
+            print(f"✅ Applied theme: {theme_name}")
+            
+            # Get current theme
+            theme = theme_manager.get_theme()
+            
+            # Apply to main window
+            self.setStyleSheet(f"""
+                QMainWindow {{
+                    background-color: {theme.background};
+                }}
+                QWidget {{
+                    background-color: {theme.background};
+                    color: {theme.text_primary};
+                }}
+            """)
+            
+            # Force refresh
+            self.update()
+        else:
+            print(f"❌ Failed to apply theme: {theme_name}")
     
     def load_chat_history(self):
         """Load chat history from memory"""
@@ -2242,7 +2361,15 @@ class SmartAssistantWindow(QMainWindow):
         """Open settings dialog"""
         dialog = SettingsDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            QMessageBox.information(self, "Settings", "Settings saved! Restart the application for changes to take effect.")
+            # Get settings from dialog
+            settings = dialog.get_settings()
+            
+            # Save and apply theme
+            from utils.config import save_user_setting
+            if 'theme' in settings:
+                save_user_setting('theme', settings['theme'])
+                self.apply_theme(settings['theme'])
+                QMessageBox.information(self, "Settings", "Theme applied successfully!")
     
     def new_chat(self):
         """Start a new chat - saves current conversation first"""

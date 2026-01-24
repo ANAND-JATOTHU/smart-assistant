@@ -98,3 +98,60 @@ os.makedirs(TEMP_AUDIO_DIR, exist_ok=True)
 
 # Create data directory if it doesn't exist
 os.makedirs(os.path.dirname(MEMORY_FILE), exist_ok=True)
+
+# ============================================================================
+# USER SETTINGS (Persistent preferences in JSON)
+# ============================================================================
+USER_SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "user_settings.json")
+
+def load_user_settings():
+    """Load user settings from JSON file, create with defaults if not exists"""
+    import json
+    
+    # Default settings
+    defaults = {
+        "theme": "dark",
+        "tts_mode": "offline",
+        "tts_voice": "nova",
+        "wake_word_enabled": True,
+        "gesture_enabled": True
+    }
+    
+    try:
+        if os.path.exists(USER_SETTINGS_FILE):
+            with open(USER_SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+                # Merge with defaults for any missing keys
+                return {**defaults, **settings}
+        else:
+            # Create file with defaults
+            save_user_settings(defaults)
+            return defaults
+    except Exception as e:
+        print(f"Warning: Could not load user settings: {e}. Using defaults.")
+        return defaults
+
+def save_user_settings(settings):
+    """Save user settings to JSON file"""
+    import json
+    
+    try:
+        os.makedirs(os.path.dirname(USER_SETTINGS_FILE), exist_ok=True)
+        with open(USER_SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error: Could not save user settings: {e}")
+        return False
+
+def get_user_setting(key, default=None):
+    """Get a specific user setting"""
+    settings = load_user_settings()
+    return settings.get(key, default)
+
+def save_user_setting(key, value):
+    """Save a specific user setting"""
+    settings = load_user_settings()
+    settings[key] = value
+    return save_user_settings(settings)
+

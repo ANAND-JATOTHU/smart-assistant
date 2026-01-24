@@ -10,6 +10,8 @@ __pycache__/
 
 # Data Files (personal conversations)
 data/memory.json
+data/user_settings.json
+data/audio_cache/
 
 # Model Files (too large for Git)
 *.gguf
