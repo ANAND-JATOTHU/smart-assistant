@@ -78,19 +78,24 @@ class SpeechListener:
             with open(temp_file, "wb") as f:
                 f.write(audio.get_wav_data())
             
-            # Transcribe with Whisper
-            segments, info = self.model.transcribe(
-                temp_file,
-                language=WHISPER_LANGUAGE,
-                beam_size=5
-            )
-            
-            # Extract text from segments
-            transcription = " ".join([segment.text for segment in segments]).strip()
-            
-            # Clean up temp file
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
+            try:
+                # Transcribe with Whisper
+                segments, info = self.model.transcribe(
+                    temp_file,
+                    language=WHISPER_LANGUAGE,
+                    beam_size=5
+                )
+                
+                # Extract text from segments
+                transcription = " ".join([segment.text for segment in segments]).strip()
+            finally:
+                # Always clean up temp file, even if error occurs
+                if os.path.exists(temp_file):
+                    try:
+                        os.remove(temp_file)
+                    except Exception as e:
+                        if DEBUG_MODE:
+                            print(f"⚠️ Failed to remove temp file: {e}")
             
             if transcription:
                 print(f"✅ You said: {transcription}")

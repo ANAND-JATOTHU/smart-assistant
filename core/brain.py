@@ -53,7 +53,7 @@ class AIBrain:
         print(f"✅ AI Brain initialized! User: {self.user_name}")
         print(f"   Mode: 100% Offline (No Internet Required)")
     
-    def _initialize_gguf(self):
+    def _initialize_gguf(self) -> None:
         """Initialize GGUF model"""
         try:
             from llama_cpp import Llama

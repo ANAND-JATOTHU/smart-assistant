@@ -58,7 +58,7 @@ class DocumentProcessor:
                 return file_type
         return None
     
-    def process_file(self, filepath: str) -> Dict[str, any]:
+    def process_file(self, filepath: str) -> Dict[str, Any]:
         """
         Process file and extract information
         Returns: {

@@ -69,7 +69,8 @@ class Speaker:
             print("✅ Pyttsx3 TTS initialized (100% Offline)")
             
         except Exception as e:
-            print(f"❌ Failed to initialize pyttsx3: {e}")
+            if DEBUG_MODE:
+                print(f"❌ Failed to initialize pyttsx3: {e}")
             raise RuntimeError("Offline TTS engine (pyttsx3) not available!")
     
     def speak(self, text: str, language: Optional[str] = None) -> bool:
@@ -130,7 +131,7 @@ class Speaker:
             self.engine.setProperty('volume', PYTTSX3_VOLUME) # Use config value
         except Exception as e:
             if DEBUG_MODE:
-                print(f"Error stopping speech: {e}")
+                print(f"❌ Error stopping speech: {e}")
         self._speaking = False
         print("🛑 Speech stopped")
     
